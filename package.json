@@ -1,0 +1,11 @@
+{
+  "name": "developer-portfolio",
+  "version": "1.0.0",
+  "description": "Interactive glassmorphic developer portfolio",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server -a 0.0.0.0 -p 8080 -c-1"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
