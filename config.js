@@ -6,20 +6,21 @@
 
 const CONFIG = {
   profile: {
-    name: "Sanjubibin",
+    name: "Sanju Antony",
     title: "Backend & AI Engineer",
     subTitle: "Aspiring Full Stack Web & Application Developer",
     about: "I am a backend developer transitioning into full-stack engineering, with a strong foundation in building scalable server-side systems and a passion for AI-driven development. I specialize in leveraging advanced LLM chatbots, Claude Code, and antigravity to optimize workflows and construct intelligent, interactive user experiences.",
     email: "sanjubibin44@gmail.com",
     github: "https://github.com/sanjubibin",
-    linkedin: "https://linkedin.com/in/sanjubibin",
-    resumeUrl: "#",
+    linkedin: "https://www.linkedin.com/in/sanju-antony-603772191",
+    resumeUrl: "Files/Resume.pdf",
   },
 
   socialLinks: [
-    { name: "GitHub", url: "https://github.com/sanjubibin", icon: "github" },
-    { name: "LinkedIn", url: "https://linkedin.com/in/sanjubibin", icon: "linkedin" },
-    { name: "Gmail", url: "mailto:sanjubibin44@gmail.com", icon: "gmail" }
+    // { name: "GitHub", url: "https://github.com/sanjubibin", icon: "github" },
+    { name: "LinkedIn", url: "https://www.linkedin.com/in/sanju-antony-603772191", icon: "linkedin" },
+    { name: "Gmail", url: "mailto:sanjubibin44@gmail.com", icon: "gmail" },
+    { name: "Instagram", url: "https://www.instagram.com/geekified_coder", icon: "instagram" }
   ],
 
   // Skill categorization with proficiency levels (optional, visual meters)
@@ -30,8 +31,8 @@ const CONFIG = {
         { name: "Python", level: 95 },
         { name: "FastAPI", level: 90 },
         { name: "Django", level: 85 },
-        { name: "Node.js", level: 75 },
-        { name: "Java", level: 60 }
+        { name: "Node.js", level: 60 },
+        { name: "Java", level: 50 }
       ]
     },
     {
@@ -74,42 +75,31 @@ const CONFIG = {
   // Work experience timeline
   experience: [
     {
-      role: "Backend & AI Solutions Engineer",
-      company: "Innovate AI Lab",
-      location: "On-site",
-      duration: "2024 - Present",
-      description: "Spearheading backend architectures utilizing FastAPI and cloud infrastructure, while designing custom Retrieval-Augmented Generation (RAG) pipelines for enterprise search.",
-      highlights: [
-        "Implemented document chunking and vector storage systems using advanced embedding models and vector databases, reducing document search retrieval latency by 45%.",
-        "Orchestrated integration of LLM endpoints (Claude, Gemini, OpenAI) to create intelligent conversational agents.",
-        "Deployed containerized services with Docker onto AWS EC2 and created serverless microservices via AWS Lambda.",
-        "Leveraged Claude Code and advanced prompt engineering to boost developer velocity and code quality."
-      ]
-    },
-    {
-      role: "Blockchain Developer (Smart Contracts)",
-      company: "Decentralized Web Solutions",
-      location: "On-site",
-      duration: "2023 - 2024",
-      description: "Designed, tested, and audited secure Ethereum smart contracts written in Solidity for various decentralized applications.",
-      highlights: [
-        "Authored, compiled, and deployed custom tokens following ERC-20 and ERC-721 collection standards.",
-        "Executed contract deployments and testing across Ethereum testnets (Sepolia, Goerli) and mainnet.",
-        "Optimized gas consumption routines, yielding average contract deployment savings of 20%.",
-        "Collaborated with frontend developers to link smart contract events using Node.js and web3 client libraries."
-      ]
-    },
-    {
-      role: "Intern",
+      role: "AI & Web3 Software Engineer",
       company: "Ionixx Technologies",
       location: "On-site",
-      duration: "2022 december - 2023 september",
-      description: "As a backend intern, I played a pivotal role in developing and maintaining robust Python/Django web applications, as well as designing and optimizing relational database schemas and REST APIs. My contributions extended to implementing secure authentication mechanisms, enhancing data management workflows, and ensuring the overall reliability and performance of the backend systems.",
+      duration: "2023 October - Present",
+      description: "Leading core R&D initiatives in generative AI integrations (Anthropic services) and Web3 asset tokenization platforms.",
       highlights: [
-        "Developed and maintained backend web applications using Python and Django, ensuring high performance and scalability.",
-        "Designed and optimized relational database schemas, implementing efficient data management workflows and ensuring data integrity.",
-        "Implemented secure authentication mechanisms and REST APIs, enhancing system security and facilitating seamless data exchange.",
-        "migration of java 1.6 application to latest django version"
+        "Currently leading research and development initiatives on Anthropic services and features, exploring and integrating advanced AI capabilities.",
+        "Architected and developed custom Model Context Protocol (MCP) servers and clients to provide structured, consent-based context for AI interactions, enhancing LLM accuracy and safety.",
+        "Led research and development for a 'Real Estate Tokenization' platform, designing secure architectures and implementing token standard best practices.",
+        "Developed and audited Solidity smart contracts on the Ethereum network and L2 solutions, including ERC-20, ERC-721, and multisig wallet contracts.",
+        "Conducted in-depth analysis of AI tooling, model optimizations, and workflows to inform strategic application development decisions.",
+        "Utilized Hardhat, Ethers.js, and MetaMask to test, audit, and deploy smart contracts across testnets and mainnets."
+      ]
+    },
+    {
+      role: "Backend Developer Intern",
+      company: "Ionixx Technologies",
+      location: "On-site",
+      duration: "2022 December - 2023 September",
+      description: "Contributed to core Python/Django web application development, database optimizations, and API migrations.",
+      highlights: [
+        "Successfully migrated legacy Java 1.6 Spring Boot APIs to modern Python Django web APIs, completing all migration targets ahead of schedule.",
+        "Applied Python OOP and functional programming patterns to develop scalable REST/MVC web architectures.",
+        "Leveraged Node.js for asynchronous, event-driven scripting and real-time backend integration tasks.",
+        "Designed and optimized relational database schemas, query executions, and user authentication modules."
       ]
     }
   ],
@@ -117,35 +107,35 @@ const CONFIG = {
   // Project portfolio cards with tags, description, and live URLs
   projects: [
     {
-      title: "Context-Aware RAG API",
-      description: "A production-ready FastAPI backend implementing semantic document search. Generates vector embeddings, indexes them in a vector store, and synthesizes answers using Claude/Gemini with highly optimized prompt context.",
+      title: "Ionixx GPT",
+      description: "An AI Chatbot built on Anthropic's Large Language Models. Features a custom Model Context Protocol (MCP) server that feeds consent-based context, code execution environments, web search, and stream messaging.",
       category: "AI & Machine Learning",
-      tags: ["FastAPI", "Vector DB", "LLMs", "Docker"],
-      codeLink: "https://github.com/sanjubibin/rag-api",
+      tags: ["LLMs", "Anthropic", "MCP Server", "Node.js", "Web Search"],
+      codeLink: "",
       liveLink: ""
     },
     {
-      title: "Gas-Optimized Token Suite",
-      description: "A suite of Solidity smart contracts for ERC-20 and ERC-721 tokens featuring customized gas savings, mint limits, and batch operations. Deployed and verified on Sepolia testnet.",
+      title: "Real Estate Tokenization",
+      description: "A blockchain-based asset tokenization platform. Deploys custom Solidity smart contracts (ERC-20, ERC-721) on Ethereum and L2 networks to represent real estate assets, with multisig wallets for enhanced security.",
       category: "Blockchain & Web3",
-      tags: ["Solidity", "Hardhat", "Sepolia", "ERC-20"],
-      codeLink: "https://github.com/sanjubibin/smart-contracts",
+      tags: ["Solidity", "Hardhat", "MetaMask", "ERC-20", "ERC-721"],
+      codeLink: "",
       liveLink: ""
     },
     {
-      title: "AI-Powered Development Assistant",
-      description: "Integration patterns using Claude Code and custom system instructions. Automates boilerplate generation for Django REST frameworks and formats custom developer prompts.",
-      category: "AI & Machine Learning",
-      tags: ["Claude Code", "Prompt Eng.", "Django", "LLMs"],
-      codeLink: "https://github.com/sanjubibin/prompt-helper",
-      liveLink: ""
-    },
-    {
-      title: "Task Orchestrator & API Gateway",
-      description: "An API Gateway microservice running on AWS Lambda and EC2. Manages background worker jobs, handles webhooks from Jira/Bitbucket, and provides containerized deployments.",
+      title: "Personal Financial Dashboard",
+      description: "A confidential dashboard application providing consent-based asset and liability tracking. Integrates Plaid API for USA financial data and is researched against Sahamati RBI guidelines for India's Account Aggregator network.",
       category: "Backend & Cloud",
-      tags: ["AWS Lambda", "EC2", "Docker", "Node.js"],
-      codeLink: "https://github.com/sanjubibin/gateway",
+      tags: ["Plaid API", "Sahamati AA", "Node.js", "Fintech"],
+      codeLink: "",
+      liveLink: ""
+    },
+    {
+      title: "Mifos API Migration",
+      description: "Led the performance-critical migration of assigned Java 1.6 Spring Boot microservice APIs to Python Django MVC architectures, ensuring backward compatibility and improved latency.",
+      category: "Backend & Cloud",
+      tags: ["Django", "Python", "Java 1.6", "Spring Boot"],
+      codeLink: "",
       liveLink: ""
     }
   ],
