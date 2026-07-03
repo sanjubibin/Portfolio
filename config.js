@@ -8,7 +8,15 @@ const CONFIG = {
   profile: {
     name: "Sanju Antony",
     title: "Backend & AI Engineer",
-    subTitle: "Aspiring Full Stack Web & Application Developer",
+    subTitle: "Building intelligent systems across backend, AI, and Web3",
+    // Rotating variant of the subtitle shown in the hero (prefix stays, words crossfade).
+    subTitleRotate: {
+      prefix: "Building intelligent systems across",
+      words: ["the backend", "AI & LLMs", "Web3 & smart contracts"]
+    },
+    // Optional portrait image. Leave empty to show the initials monogram.
+    avatarUrl: "Files/profile.png",
+    location: "Tamil Nadu, India",
     about: "I am a backend developer transitioning into full-stack engineering, with a strong foundation in building scalable server-side systems and a passion for AI-driven development. I specialize in leveraging advanced LLM chatbots, Claude Code, and antigravity to optimize workflows and construct intelligent, interactive user experiences.",
     email: "sanjubibin44@gmail.com",
     github: "https://github.com/sanjubibin",
@@ -17,7 +25,7 @@ const CONFIG = {
   },
 
   socialLinks: [
-    // { name: "GitHub", url: "https://github.com/sanjubibin", icon: "github" },
+    { name: "GitHub", url: "https://github.com/sanjubibin", icon: "github" },
     { name: "LinkedIn", url: "https://www.linkedin.com/in/sanju-antony-603772191", icon: "linkedin" },
     { name: "Gmail", url: "mailto:sanjubibin44@gmail.com", icon: "gmail" },
     { name: "Instagram", url: "https://www.instagram.com/geekified_coder", icon: "instagram" }
@@ -112,7 +120,13 @@ const CONFIG = {
       category: "AI & Machine Learning",
       tags: ["LLMs", "Anthropic", "MCP Server", "Node.js", "Web Search"],
       codeLink: "",
-      liveLink: ""
+      liveLink: "",
+      architecture: "Client (Web UI) <---> SSE Connection <---> Node.js MCP Server (Express) <---> Anthropic API (Claude 3.5)",
+      deepDive: [
+        "Designed a custom Node.js Model Context Protocol (MCP) server providing real-time data access.",
+        "Built consent-based security prompts to protect local execution parameters.",
+        "Implemented Server-Sent Events (SSE) to stream message tokens dynamically, reducing first-token latency by 45%."
+      ]
     },
     {
       title: "Real Estate Tokenization",
@@ -120,7 +134,13 @@ const CONFIG = {
       category: "Blockchain & Web3",
       tags: ["Solidity", "Hardhat", "MetaMask", "ERC-20", "ERC-721"],
       codeLink: "",
-      liveLink: ""
+      liveLink: "",
+      architecture: "DApp Frontend (Ethers.js) <---> MetaMask Wallet <---> Solidity Contracts (ERC-20/721) <---> Ethereum / Polygon Network",
+      deepDive: [
+        "Authored Solidity smart contracts incorporating OpenZeppelin ERC-20 and ERC-721 standards.",
+        "Integrated multisign (Gnosis Safe) wallet architectures to govern high-value asset transfers.",
+        "Wrote comprehensive Hardhat test suites achieving 100% smart contract statement and branch coverage."
+      ]
     },
     {
       title: "Personal Financial Dashboard",
@@ -128,7 +148,13 @@ const CONFIG = {
       category: "Backend & Cloud",
       tags: ["Plaid API", "Sahamati AA", "Node.js", "Fintech"],
       codeLink: "",
-      liveLink: ""
+      liveLink: "",
+      architecture: "Client UI <---> Node.js Backend API <---> Plaid Link Gateway / Sahamati AA API <---> Financial Data Providers",
+      deepDive: [
+        "Integrated Plaid API to fetch secure financial records across multiple institutions in the USA.",
+        "Designed a local ledger database complying with Sahamati guidelines for India's Account Aggregator network.",
+        "Implemented token-based OAuth data consent verification flows ensuring compliance with financial security policies."
+      ]
     },
     {
       title: "Mifos API Migration",
@@ -136,17 +162,23 @@ const CONFIG = {
       category: "Backend & Cloud",
       tags: ["Django", "Python", "Java 1.6", "Spring Boot"],
       codeLink: "",
-      liveLink: ""
+      liveLink: "",
+      architecture: "Legacy Spring Boot (Java 1.6) APIs ===> API Gateway (Reverse Proxy) ===> New Django MVC (Python 3)",
+      deepDive: [
+        "Migrated 15+ legacy Java Spring Boot endpoints to Python Django MVC frameworks, meeting strict type requirements.",
+        "Optimized Django ORM SQL query execution, decreasing baseline latency by 35% on critical batch requests.",
+        "Maintained backward compatibility for old databases during parallel deployment, ensuring zero downtime."
+      ]
     }
   ],
 
   // Education information
   education: [
     {
-      degree: "Bachelor of Science in Computer Science",
-      institution: "Technical University",
-      duration: "2018 - 2022",
-      description: "Specialized in Software Engineering, Backend Architecture, and Distributed Systems."
+      degree: "Bachelor of Engineering in Mechanical Engineering",
+      institution: "Mar Ephraem College of Engineering and Technology, Kanyakumari",
+      duration: "June 2018 - April 2022",
+      description: "CGPA: 7.82"
     }
   ]
 };
