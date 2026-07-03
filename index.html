@@ -182,7 +182,40 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js" defer></script>
   <!-- Site logic -->
   <script src="app.js" defer></script>
+  <script src="ai-clone.js" defer></script>
   <!-- Hero orb (independent module; page works fully without it) -->
   <script type="module" src="orb.js"></script>
+
+  <!-- AI Clone Chat Widget -->
+  <button id="ai-chat-toggle" class="glass ai-chat-toggle" aria-label="Open AI Clone Chat" data-gel>
+    <svg viewBox="0 0 24 24" class="ai-chat-toggle__icon" fill="currentColor"><path d="M12 2C6.477 2 2 6.13 2 11.2c0 2.877 1.43 5.437 3.68 7.118l-.51 2.302a.75.75 0 001.07.828l2.678-1.46c.96.262 1.98.412 3.082.412 5.523 0 10-4.13 10-9.2C22 6.13 17.523 2 12 2zm1 13h-2v-2h2v2zm0-4h-2V7h2v4z"/></svg>
+    <span class="ai-chat-toggle__ping" aria-hidden="true"></span>
+  </button>
+
+  <div id="ai-chat-container" class="glass ai-chat-container" aria-hidden="true">
+    <header class="ai-chat-header">
+      <div class="ai-chat-header__info">
+        <div class="ai-chat-header__avatar" aria-hidden="true">SA</div>
+        <div>
+          <h4 class="ai-chat-header__title">Sanju's AI Clone</h4>
+          <p class="ai-chat-header__status"><span class="status-dot"></span> MCP Client Active</p>
+        </div>
+      </div>
+      <button id="ai-chat-close" class="ai-chat-header__close" aria-label="Close Chat">&times;</button>
+    </header>
+
+    <div class="ai-chat-body">
+      <div class="ai-chat-messages" id="ai-chat-messages">
+        <div class="chat-msg chat-msg--bot">
+          Hi there! I'm Sanju's AI Clone. Ask me anything about my experience, projects, smart contracts, or MCP servers!
+        </div>
+      </div>
+    </div>
+
+    <form id="ai-chat-form" class="ai-chat-form">
+      <input type="text" id="ai-chat-input" placeholder="Ask about solidity, fastapi, work..." autocomplete="off" required>
+      <button type="submit" class="btn btn--primary glass btn--sm" id="ai-chat-send" data-gel>Send</button>
+    </form>
+  </div>
 </body>
 </html>

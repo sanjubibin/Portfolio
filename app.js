@@ -99,7 +99,7 @@
   function renderAbout() {
     const avatar = $('#about-avatar');
     if (CONFIG.profile.avatarUrl) {
-      avatar.innerHTML = `<img src="${esc(CONFIG.profile.avatarUrl)}" alt="" loading="lazy" decoding="async">`;
+      avatar.innerHTML = `<img src="${esc(CONFIG.profile.avatarUrl)}" alt="${esc(CONFIG.profile.name)}" loading="lazy" decoding="async" onerror="this.style.display='none'; this.parentElement.textContent='${esc(initials(CONFIG.profile.name))}'">`;
     } else {
       avatar.textContent = initials(CONFIG.profile.name);
     }
@@ -239,7 +239,7 @@
 
   function renderFooter() {
     $('#footer-line').textContent =
-      `© ${new Date().getFullYear()} ${CONFIG.profile.name} · liquid glass, GSAP & Three.js`;
+      `© ${new Date().getFullYear()} ${CONFIG.profile.name}`;
   }
 
   // =============================================================== NAV
@@ -292,6 +292,13 @@
       if (!name || !email || !subject || !message) {
         status.className = 'err';
         status.textContent = 'Please fill in every field before sending.';
+        return;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        status.className = 'err';
+        status.textContent = 'Please enter a valid email address.';
         return;
       }
 
