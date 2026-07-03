@@ -13,6 +13,9 @@
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Sanju Antony — Backend &amp; AI Engineer">
+  <meta name="twitter:description" content="Portfolio of Sanju Antony — Backend &amp; AI engineer building scalable server-side systems, LLM &amp; MCP integrations, and Web3 smart-contract platforms.">
+  <meta name="twitter:image" content="https://sanjubibin.github.io/Portfolio/og-image.png">
   <meta name="theme-color" content="#050510">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
@@ -42,6 +45,8 @@
 </head>
 <body>
 
+
+
   <!-- Ambient background: gradient mesh + drifting blobs + grain -->
   <div class="bg" aria-hidden="true">
     <div class="bg__base"></div>
@@ -61,18 +66,21 @@
       <a href="#experience" data-gel data-magnet>Experience</a>
       <a href="#contact" data-gel data-magnet>Contact</a>
     </nav>
+    <button id="cli-nav-btn" class="nav__brand nav__cli" aria-label="Open Terminal Console" data-gel data-magnet>&gt;_</button>
     <a class="btn btn--sm glass nav__resume" href="Files/Resume.pdf" target="_blank" rel="noopener" data-gel data-magnet>Resume</a>
     <span class="nav__progress" aria-hidden="true"></span>
+    <div class="nav__indicator" id="nav-indicator" aria-hidden="true"></div>
   </header>
 
   <main id="main">
 
     <!-- ============================ HERO ============================ -->
-    <section id="hero" class="hero" data-orb="off">
-      <div class="hero__canvas-wrap" aria-hidden="true">
-        <canvas id="orb-canvas"></canvas>
+    <section id="hero" class="hero">
+      <div class="hero__portrait-wrap" aria-hidden="true">
+        <div class="hero__portrait-bg"></div>
+        <img class="hero__portrait" src="Files/profile.png" alt="Sanju Antony Background Portrait">
+        <div class="hero__portrait-glow"></div>
       </div>
-      <div class="hero__fallback-orb" aria-hidden="true"></div>
 
       <div class="hero__content">
         <p class="hero__eyebrow" id="hero-eyebrow">Backend &amp; AI Engineer</p>
@@ -84,7 +92,6 @@
         </div>
       </div>
     </section>
-
     <!-- ============================ ABOUT ============================ -->
     <section id="about" class="section">
       <div class="section__inner">
@@ -183,8 +190,8 @@
   <!-- Site logic -->
   <script src="app.js" defer></script>
   <script src="ai-clone.js" defer></script>
-  <!-- Hero orb (independent module; page works fully without it) -->
-  <script type="module" src="orb.js"></script>
+  <script src="cli.js" defer></script>
+
 
   <!-- AI Clone Chat Widget -->
   <button id="ai-chat-toggle" class="glass ai-chat-toggle" aria-label="Open AI Clone Chat" data-gel>
@@ -201,7 +208,9 @@
           <p class="ai-chat-header__status"><span class="status-dot"></span> MCP Client Active</p>
         </div>
       </div>
-      <button id="ai-chat-close" class="ai-chat-header__close" aria-label="Close Chat">&times;</button>
+      <button id="ai-chat-close" class="ai-chat-header__btn ai-chat-header__btn--close" aria-label="Close Chat" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px; display: block;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
     </header>
 
     <div class="ai-chat-body">
@@ -216,6 +225,55 @@
       <input type="text" id="ai-chat-input" placeholder="Ask about solidity, fastapi, work..." autocomplete="off" required>
       <button type="submit" class="btn btn--primary glass btn--sm" id="ai-chat-send" data-gel>Send</button>
     </form>
+  </div>
+
+
+
+  <!-- Project Details Slide-out Drawer -->
+  <div id="drawer-overlay" class="drawer-overlay" aria-hidden="true"></div>
+  <aside id="project-drawer" class="glass project-drawer" aria-hidden="true">
+    <header class="project-drawer__header">
+      <h3 id="drawer-title" class="project-drawer__title">Project Title</h3>
+      <button id="project-drawer-close" class="project-drawer__close" aria-label="Close Details">&times;</button>
+    </header>
+    <div class="project-drawer__body" id="drawer-body">
+      <!-- Dynamic Details Card Injected Here -->
+    </div>
+  </aside>
+
+  <!-- Web3 MetaMask Sandbox Modal -->
+  <div id="dapp-modal" class="dapp-modal" aria-hidden="true">
+    <div class="glass dapp-modal__box" id="dapp-modal-box">
+      <!-- Simulated MetaMask Popup Screen -->
+    </div>
+  </div>
+
+  <!-- Full-Screen Developer Terminal Console -->
+  <div id="cli-terminal" class="cli-terminal" aria-hidden="true">
+    <header class="cli-terminal__header">
+      <div class="cli-terminal__dots" aria-hidden="true">
+        <span class="cli-terminal__dot"></span>
+        <span class="cli-terminal__dot"></span>
+        <span class="cli-terminal__dot"></span>
+      </div>
+      <span class="cli-terminal__title">sanju@portfolio: ~</span>
+      <button id="cli-terminal-close" class="cli-terminal__close" aria-label="Close Terminal">&times;</button>
+    </header>
+    <div class="cli-terminal__body">
+      <div class="cli-terminal__output" id="cli-terminal-output">
+        <span style="color:#d3d7cf;">Welcome to Sanju's Developer Console v1.0.0.</span>
+        <span style="color:#d3d7cf;">Type '<span style="color:#8ae234;">help</span>' to see list of available commands.</span>
+      </div>
+    </div>
+
+  <!-- Contact Form Success Modal -->
+  <div id="contact-success-modal" class="contact-success" aria-hidden="true">
+    <div class="glass contact-success__box">
+      <div class="contact-success__icon">✓</div>
+      <h4 style="font-weight: 700; color: #fff; font-size: 1.25rem; margin-bottom: 0.5rem;">Message Sent Successfully!</h4>
+      <p style="font-size: 0.95rem; color: var(--ink-low); line-height: 1.5;">Thank you for reaching out! Your message has been routed and Sanju will get back to you shortly.</p>
+      <button type="button" class="btn btn--sm glass" id="contact-success-close" data-gel style="margin-top: 1.2rem; width: 100%;">Close</button>
+    </div>
   </div>
 </body>
 </html>

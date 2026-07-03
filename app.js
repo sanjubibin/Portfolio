@@ -145,7 +145,7 @@
       <div class="glass skill-group reveal" data-tilt>
         <h4>${esc(group.category)}</h4>
         <div class="pills">
-          ${(group.items || []).map((it) => `<span class="pill">${esc(it.name)}</span>`).join('')}
+          ${(group.items || []).map((it) => `<span class="pill" data-tech="${esc(it.name.toLowerCase())}">${esc(it.name)}</span>`).join('')}
         </div>
       </div>`).join('');
   }
@@ -163,15 +163,19 @@
       p.codeLink ? `<a href="${esc(p.codeLink)}" target="_blank" rel="noopener">View Code →</a>` : '',
       p.liveLink ? `<a href="${esc(p.liveLink)}" target="_blank" rel="noopener">Live Demo →</a>` : ''
     ].join('');
+    const techTags = (p.tags || []).map(t => t.toLowerCase()).join(',');
     return `
-      <article class="glass card project-card${reveal ? ' reveal' : ''}" data-tilt>
+      <article class="glass card project-card${reveal ? ' reveal' : ''}" data-tech-tags="${esc(techTags)}" data-tilt>
         <div class="project-card__head">
           <h3>${esc(p.title)}</h3>
           <span class="badge">${esc(p.category)}</span>
         </div>
         <p class="project-card__desc">${esc(p.description)}</p>
         <div class="tags">${(p.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
-        ${links ? `<div class="project-card__links">${links}</div>` : ''}
+        <div class="project-card__footer">
+          <button type="button" class="btn btn--sm glass open-details-btn" data-project-title="${esc(p.title)}" data-gel>Explore Details →</button>
+          ${links ? `<div class="project-card__links">${links}</div>` : ''}
+        </div>
       </article>`;
   }
 
@@ -266,8 +270,13 @@
         end: 'bottom center',
         onToggle: (self) => {
           if (!self.isActive) return;
-          $$('.nav__links a').forEach((a) =>
-            a.classList.toggle('is-active', a.getAttribute('href') === '#' + sec.id));
+          $$('.nav__links a').forEach((a) => {
+            const active = a.getAttribute('href') === '#' + sec.id;
+            a.classList.toggle('is-active', active);
+            if (active) {
+              updateNavIndicator(a);
+            }
+          });
         }
       });
     });
@@ -310,9 +319,24 @@
 
       setTimeout(() => {
         status.className = 'ok';
-        status.textContent = `Thank you, ${name}! Opening your mail client…`;
+        status.textContent = `Thank you, ${name}! Routing message…`;
         const body = `Name: ${name}\nEmail: ${email}\n\nMessage:\n${message}`;
         const mailto = `mailto:${CONFIG.profile.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        
+        const modal = $('#contact-success-modal');
+        if (modal) {
+          modal.classList.add('is-open');
+          modal.setAttribute('aria-hidden', 'false');
+          
+          const closeBtn = $('#contact-success-close');
+          if (closeBtn) {
+            closeBtn.onclick = () => {
+              modal.classList.remove('is-open');
+              modal.setAttribute('aria-hidden', 'true');
+            };
+          }
+        }
+
         setTimeout(() => {
           window.location.href = mailto;
           btn.disabled = false;
@@ -432,8 +456,6 @@
         gsap.set(state.tiltEl, {
           rotateX: state.rx, rotateY: state.ry, y: -6, transformPerspective: 900
         });
-        state.tiltEl.style.setProperty('--mx', ((nx + 0.5) * 100).toFixed(2) + '%');
-        state.tiltEl.style.setProperty('--my', ((ny + 0.5) * 100).toFixed(2) + '%');
       }
 
       // Magnetic pull: element leans toward the cursor while hovered.
@@ -444,11 +466,10 @@
         gsap.set(state.magnetEl, { x: dx, y: dy });
       }
 
-      if (!state.tiltEl && glassEl) {
-        const r = glassEl.getBoundingClientRect();
-        glassEl.style.setProperty('--mx', (((state.px - r.left) / r.width) * 100).toFixed(2) + '%');
-        glassEl.style.setProperty('--my', (((state.py - r.top) / r.height) * 100).toFixed(2) + '%');
-      }
+
+
+
+
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -488,7 +509,15 @@
         autoAlpha: 1, y: 0, filter: 'blur(0px)',
         duration: 0.9, ease: 'back.out(1.4)', stagger: 0.08,
         clearProps: 'filter',
-        onComplete: () => { if (COARSE) addIdleFloat(batch); }
+        onComplete: () => {
+          if (COARSE) addIdleFloat(batch);
+          batch.forEach((el) => {
+            if (el.classList.contains('glass')) {
+              el.classList.add('reveal-shine');
+              setTimeout(() => el.classList.remove('reveal-shine'), 1050);
+            }
+          });
+        }
       })
     });
 
@@ -551,6 +580,449 @@
     }
   }
 
+  // -------------------------------------------------------- audio synthesizer
+  let audioCtx = null;
+  let isAudioMuted = false;
+
+  function initAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+
+  function playSynthSound(freqStart, freqEnd, duration, type = 'sine', volume = 0.06) {
+    if (isAudioMuted) return;
+    try {
+      initAudioContext();
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freqStart, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(freqEnd, audioCtx.currentTime + duration);
+
+      gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch (e) {
+      console.warn('Audio synthesis failed:', e);
+    }
+  }
+
+  const playTick = () => playSynthSound(1800, 1100, 0.012, 'sine', 0.02);
+  const playClick = () => playSynthSound(550, 180, 0.045, 'triangle', 0.05);
+
+  function initAudioEvents() {
+    // Hover sound registers
+    document.addEventListener('pointerover', (e) => {
+      if (isAudioMuted) return;
+      const target = e.target.closest('a, button, .chip, .pill, .social');
+      if (target) playTick();
+    });
+
+    // Press sound registers
+    document.addEventListener('pointerdown', (e) => {
+      if (isAudioMuted) return;
+      const target = e.target.closest('[data-gel], button, .chip, #ai-chat-toggle, #ai-chat-close');
+      if (target) playClick();
+    });
+  }
+
+
+  // -------------------------------------------------------- sliding indicator
+  let currentActiveLink = null;
+
+  function updateNavIndicator(a) {
+    const indicator = $('#nav-indicator');
+    if (!indicator) return;
+    if (!a) {
+      indicator.classList.remove('is-visible');
+      currentActiveLink = null;
+      return;
+    }
+    
+    currentActiveLink = a;
+    const nav = $('#site-nav');
+    const rectA = a.getBoundingClientRect();
+    const rectNav = nav.getBoundingClientRect();
+    
+    const left = rectA.left - rectNav.left;
+    const width = rectA.width;
+    
+    indicator.classList.add('is-visible');
+    gsap.to(indicator, {
+      left: left,
+      width: width,
+      duration: 0.45,
+      ease: 'back.out(1.15)',
+      overwrite: 'auto'
+    });
+  }
+
+  // Handle window resizing to keep indicator aligned
+  window.addEventListener('resize', () => {
+    if (currentActiveLink) {
+      updateNavIndicator(currentActiveLink);
+    }
+  });
+
+  // ------------------------------------------------------- context highlights
+  function initContextHighlights() {
+    const skillsGroup = $('#skills-groups');
+    if (!skillsGroup) return;
+
+    skillsGroup.addEventListener('pointerover', (e) => {
+      const pill = e.target.closest('.pill');
+      if (!pill) return;
+
+      const tech = pill.dataset.tech;
+      if (!tech) return;
+
+      const projectCards = $$('.project-card');
+      const xpItems = $$('.xp-item');
+
+      projectCards.forEach((card) => {
+        const tags = (card.dataset.techTags || '').split(',');
+        if (tags.includes(tech)) {
+          card.classList.add('context-highlight');
+        } else {
+          card.classList.add('context-fade');
+        }
+      });
+
+      xpItems.forEach((card) => {
+        const descText = card.textContent.toLowerCase();
+        if (descText.includes(tech)) {
+          card.classList.add('context-highlight');
+        } else {
+          card.classList.add('context-fade');
+        }
+      });
+    });
+
+    skillsGroup.addEventListener('pointerout', (e) => {
+      const pill = e.target.closest('.pill');
+      if (!pill) return;
+
+      $$('.project-card, .xp-item').forEach((card) => {
+        card.classList.remove('context-highlight', 'context-fade');
+      });
+    });
+  }
+
+  // ------------------------------------------------------------- project drawer
+  function initProjectDrawer() {
+    const drawer = $('#project-drawer');
+    const overlay = $('#drawer-overlay');
+    const closeBtn = $('#project-drawer-close');
+    if (!drawer || !overlay || !closeBtn) return;
+
+    function openDrawer(projectTitle) {
+      const p = (CONFIG.projects || []).find((x) => x.title === projectTitle);
+      if (!p) return;
+
+      // Set Title
+      $('#drawer-title').textContent = p.title;
+
+      // Build Body Content
+      let bodyHtml = `
+        <div class="drawer-section">
+          <h4>Category</h4>
+          <p class="mm-value">${esc(p.category)}</p>
+        </div>
+        
+        <div class="drawer-section">
+          <h4>Description</h4>
+          <p style="font-size: 0.95rem; line-height: 1.5; color: var(--ink-mid);">${esc(p.description)}</p>
+        </div>
+
+        <div class="drawer-section">
+          <h4>Technologies</h4>
+          <div class="tags" style="margin-top: 0.25rem;">
+            ${(p.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}
+          </div>
+        </div>
+      `;
+
+      // System Architecture
+      if (p.architecture) {
+        bodyHtml += `
+          <div class="drawer-section">
+            <h4>System Architecture</h4>
+            <div class="drawer-arch-box">${esc(p.architecture)}</div>
+          </div>
+        `;
+      }
+
+      // Technical Challenges & Bullet Points
+      if (p.deepDive && p.deepDive.length > 0) {
+        bodyHtml += `
+          <div class="drawer-section">
+            <h4>Technical Accomplishments</h4>
+            <ul class="drawer-bullets">
+              ${p.deepDive.map((d) => `<li>${esc(d)}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      }
+
+      // Special Interactive Playground: Ionixx GPT (MCP Client Tools)
+      if (p.title === "Ionixx GPT") {
+        bodyHtml += `
+          <div class="drawer-section" style="margin-top: 1rem;">
+            <h4>Interactive MCP Playground</h4>
+            <p style="font-size: 0.85rem; color: var(--ink-low); margin-bottom: 0.5rem;">
+              Test real-time tool calls against your local portfolio context using the Model Context Protocol:
+            </p>
+            <div class="mcp-play">
+              <div class="mcp-play__row">
+                <label for="mcp-tool-select">Select MCP Tool</label>
+                <select id="mcp-tool-select" class="mcp-play__select">
+                  <option value="tools/list">tools/list</option>
+                  <option value="tools/call:get_skills">tools/call: get_skills()</option>
+                  <option value="tools/call:get_experience">tools/call: get_experience()</option>
+                  <option value="tools/call:get_profile">tools/call: get_profile()</option>
+                </select>
+              </div>
+              <div class="mcp-play__row">
+                <label>JSON Request</label>
+                <pre class="mcp-play__code" id="mcp-req-code">{ "method": "tools/list", "params": {} }</pre>
+              </div>
+              <button type="button" class="btn btn--primary glass btn--sm mcp-play__btn" id="mcp-run-btn" data-gel>Execute Tool</button>
+              <div class="mcp-play__row">
+                <label>JSON Response</label>
+                <pre class="mcp-play__code mcp-play__code--output" id="mcp-res-code">Click 'Execute Tool' to query local workspace...</pre>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // Special Interactive Playground: Real Estate Tokenization (MetaMask DApp Sandbox)
+      if (p.title === "Real Estate Tokenization") {
+        bodyHtml += `
+          <div class="drawer-section" style="margin-top: 1rem;">
+            <h4>Simulated DApp Sandbox</h4>
+            <p style="font-size: 0.85rem; color: var(--ink-low); margin-bottom: 0.75rem;">
+              Interact with deployed smart contracts by simulating a transaction signature on the Ethereum network:
+            </p>
+            <button type="button" class="btn btn--primary glass open-dapp-btn" id="open-dapp-btn" data-gel style="width: 100%;">
+              Launch DApp Sandbox (Simulate Mint)
+            </button>
+          </div>
+        `;
+      }
+
+      $('#drawer-body').innerHTML = bodyHtml;
+
+      // Open Panel
+      drawer.classList.add('is-open');
+      overlay.classList.add('is-open');
+      drawer.setAttribute('aria-hidden', 'false');
+      overlay.setAttribute('aria-hidden', 'false');
+      
+      // Wire up special play handlers if injected
+      if (p.title === "Ionixx GPT") initMCPPlayground();
+      if (p.title === "Real Estate Tokenization") initDAppSandbox();
+    }
+
+    function closeDrawer() {
+      drawer.classList.remove('is-open');
+      overlay.classList.remove('is-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    // Bind explorer click delegation on grid
+    const grid = $('#projects-grid');
+    if (grid) {
+      grid.addEventListener('click', (e) => {
+        const btn = e.target.closest('.open-details-btn');
+        if (btn) {
+          openDrawer(btn.dataset.projectTitle);
+        }
+      });
+    }
+
+    closeBtn.addEventListener('click', closeDrawer);
+    overlay.addEventListener('click', closeDrawer);
+
+    // Escape Key closes drawer
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && drawer.classList.contains('is-open')) {
+        closeDrawer();
+      }
+    });
+  }
+
+  // -------------------------------------------------- mcp tools simulation logic
+  function initMCPPlayground() {
+    const select = $('#mcp-tool-select');
+    const reqCode = $('#mcp-req-code');
+    const resCode = $('#mcp-res-code');
+    const runBtn = $('#mcp-run-btn');
+
+    if (!select || !reqCode || !resCode || !runBtn) return;
+
+    const requestTemplates = {
+      'tools/list': { method: 'tools/list', params: {} },
+      'tools/call:get_skills': { method: 'tools/call', params: { name: 'get_skills', arguments: {} } },
+      'tools/call:get_experience': { method: 'tools/call', params: { name: 'get_experience', arguments: { limit: 2 } } },
+      'tools/call:get_profile': { method: 'tools/call', params: { name: 'get_profile', arguments: {} } }
+    };
+
+    select.addEventListener('change', () => {
+      const template = requestTemplates[select.value];
+      reqCode.textContent = JSON.stringify(template, null, 2);
+    });
+
+    runBtn.addEventListener('click', () => {
+      resCode.textContent = '// Sending request to portfolio client...';
+      
+      // Simulate tool call execution
+      setTimeout(() => {
+        const value = select.value;
+        let response = {};
+
+        if (value === 'tools/list') {
+          response = {
+            tools: [
+              { name: 'get_profile', description: 'Returns standard bio and social handles' },
+              { name: 'get_skills', description: 'Fetches technical matrix levels' },
+              { name: 'get_experience', description: 'Lists job histories' }
+            ]
+          };
+        } else if (value === 'tools/call:get_skills') {
+          response = {
+            result: CONFIG.skills.map(s => ({ category: s.category, count: s.items.length }))
+          };
+        } else if (value === 'tools/call:get_experience') {
+          response = {
+            result: CONFIG.experience.map(e => ({ role: e.role, company: e.company, duration: e.duration }))
+          };
+        } else if (value === 'tools/call:get_profile') {
+          response = {
+            result: {
+              name: CONFIG.profile.name,
+              role: CONFIG.profile.role,
+              location: CONFIG.profile.location
+            }
+          };
+        }
+
+        resCode.textContent = JSON.stringify({ jsonrpc: '2.0', id: 1, result: response }, null, 2);
+      }, 700);
+    });
+  }
+
+  // ---------------------------------------------------- metamask simulation logic
+  function initDAppSandbox() {
+    const btn = $('#open-dapp-btn');
+    const modal = $('#dapp-modal');
+    const box = $('#dapp-modal-box');
+
+    if (!btn || !modal || !box) return;
+
+    function renderMetaMaskPrompt() {
+      box.innerHTML = `
+        <div class="mm-header">
+          <div class="mm-header__logo">
+            <svg style="width: 24px; height: 24px; fill: #f6851b;" viewBox="0 0 24 24"><path d="M22 11.603l-2.072-5.753-2.928.718L22 11.603zm-10 1.22l-1.396-4.636 1.396 2.148 1.396-2.148L12 12.823zm10-1.22l-4.529 1.488.625 2.144L22 11.603zM2.072 5.85L0 11.603l4.904 3.809.625-2.144L2.072 5.85zm12.928 2.052L12 3l-3 4.902h6zm-9.928-.718L3.072 5.85 0 11.603l4.904 3.809.096-7.562zM12 21l3.668-5.328H8.332L12 21zm-7.096-9.397L1.236 15.412l7.096-.282-3.428-3.527zM22.764 15.412l-3.668-3.809-3.428 3.527 7.096.282z"/></svg>
+            <span>MetaMask Notification</span>
+          </div>
+          <span class="mm-header__network">Ethereum Sepolia</span>
+        </div>
+        <div class="mm-body">
+          <div class="mm-row">
+            <span class="mm-label">Contract Call Origin</span>
+            <span class="mm-value">sanjubibin.github.io</span>
+          </div>
+          <div class="mm-row">
+            <span class="mm-label">Interaction Method</span>
+            <span class="mm-value mm-value--mono">mintAssetToken(uint256 estateId)</span>
+          </div>
+          <div class="mm-row">
+            <span class="mm-label">Parameters</span>
+            <span class="mm-value mm-value--mono">estateId: 44</span>
+          </div>
+          <div class="mm-row">
+            <span class="mm-label">Estimated Gas Fee</span>
+            <span class="mm-value mm-value--gas">0.00042 ETH ($1.35)</span>
+          </div>
+        </div>
+        <div class="mm-buttons">
+          <button type="button" class="btn btn--sm glass mm-reject" id="mm-reject" data-gel>Reject</button>
+          <button type="button" class="btn btn--sm btn--primary glass mm-confirm" id="mm-confirm" data-gel>Confirm</button>
+        </div>
+      `;
+
+      // Bind prompt confirmation events
+      $('#mm-reject').addEventListener('click', () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+      });
+
+      $('#mm-confirm').addEventListener('click', () => {
+        renderMetaMaskLoading();
+      });
+    }
+
+    function renderMetaMaskLoading() {
+      box.innerHTML = `
+        <div class="mm-loader">
+          <div class="mm-spinner"></div>
+          <p style="font-weight: 600; color: #fff;">Mining Transaction Block...</p>
+          <p style="font-size: 0.8rem; color: var(--ink-low);">Simulating network state transitions on Sepolia Testnet</p>
+        </div>
+      `;
+
+      setTimeout(() => {
+        renderMetaMaskSuccess();
+      }, 2000);
+    }
+
+    function renderMetaMaskSuccess() {
+      box.innerHTML = `
+        <div class="mm-success">
+          <div class="mm-success__icon">✓</div>
+          <h4 style="color: #fff; font-weight: 700; font-size: 1.15rem;">Transaction Confirmed</h4>
+          <div class="mm-token-card">
+            <div class="mm-token-card__media">#44</div>
+            <div class="mm-token-card__info">
+              <h5>Ionixx Tokenized Estate</h5>
+              <p>Owner: ${esc(CONFIG.profile.name)}</p>
+              <p style="font-family: var(--font-code); font-size: 0.7rem; color: #34d399; margin-top: 0.2rem;">
+                Tx: 0x7b58f8b...32a1f
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn btn--sm glass" id="mm-close" data-gel style="width: 100%;">
+            Close Sandbox
+          </button>
+        </div>
+      `;
+
+      $('#mm-close').addEventListener('click', () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+      });
+    }
+
+    btn.addEventListener('click', () => {
+      renderMetaMaskPrompt();
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+    });
+  }
+
   // ================================================================= INIT
   renderHero();
   renderAbout();
@@ -566,6 +1038,9 @@
   initNav();
   initForm();
   initFilters();
+  initAudioEvents();
+  initContextHighlights();
+  initProjectDrawer();
 
   if (HAS_GSAP) {
     gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);

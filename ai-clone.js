@@ -26,7 +26,6 @@
 
   function toggleChat(force) {
     isOpen = force !== undefined ? force : !isOpen;
-    chatContainer.classList.toggle('is-active', isOpen);
     toggleBtn.setAttribute('aria-expanded', String(isOpen));
     chatContainer.setAttribute('aria-hidden', String(!isOpen));
 
@@ -35,17 +34,172 @@
       const ping = $('.ai-chat-toggle__ping', toggleBtn);
       if (ping) ping.style.display = 'none';
 
-      setTimeout(() => chatInput.focus(), 150);
+      // Kill any in-flight tweens
+      gsap.killTweensOf([chatContainer, chatContainer.children, toggleBtn]);
+
+      // Snap the container to button size/position to morph FROM
+      chatContainer.style.left = 'auto';
+      chatContainer.style.top = 'auto';
+      chatContainer.style.bottom = '24px';
+      chatContainer.style.right = '24px';
+
+      gsap.set(chatContainer, {
+        display: 'flex',
+        opacity: 0,
+        width: 56,
+        height: 56,
+        bottom: 24,
+        right: 24,
+        borderRadius: '50%',
+        pointerEvents: 'none'
+      });
+      gsap.set(chatContainer.children, { opacity: 0 });
+
+      // Hide toggle while chat is open
+      gsap.set(toggleBtn, { pointerEvents: 'none', opacity: 0 });
+
+      // Morph expand
+      gsap.to(chatContainer, {
+        width: 380,
+        height: 580,
+        borderRadius: '20px',
+        opacity: 1,
+        pointerEvents: 'all',
+        duration: 0.45,
+        ease: 'power3.out',
+        onComplete: () => {
+          gsap.fromTo(chatContainer.children,
+            { opacity: 0, y: 12 },
+            { opacity: 1, y: 0, duration: 0.25, stagger: 0.05, ease: 'power2.out', onComplete: () => chatInput.focus() }
+          );
+        }
+      });
+
+    } else {
+      // Kill any in-flight tweens
+      gsap.killTweensOf([chatContainer, chatContainer.children, toggleBtn]);
+
+      // *** Restore toggle IMMEDIATELY so it can never get stuck invisible ***
+      gsap.set(toggleBtn, { pointerEvents: 'all', opacity: 1 });
+
+      // Fade out chat content, then shrink container
+      gsap.to(chatContainer.children, {
+        opacity: 0,
+        y: -8,
+        duration: 0.18,
+        ease: 'power2.in',
+        onComplete: () => {
+          gsap.to(chatContainer, {
+            width: 56,
+            height: 56,
+            borderRadius: '50%',
+            opacity: 0,
+            pointerEvents: 'none',
+            duration: 0.35,
+            ease: 'power3.inOut',
+            onComplete: () => {
+              // Reset container to hidden default state
+              gsap.set(chatContainer, {
+                display: 'none',
+                left: 'auto',
+                top: 'auto',
+                bottom: 24,
+                right: 24,
+                width: 56,
+                height: 56,
+                borderRadius: '50%'
+              });
+            }
+          });
+        }
+      });
     }
   }
 
   toggleBtn.addEventListener('click', () => toggleChat());
-  closeBtn.addEventListener('click', () => toggleChat(false));
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleChat(false);
+  });
+
+  // Close when clicking outside of the chatContainer AND outside the toggleBtn
+  document.addEventListener('click', (e) => {
+    if (isOpen && !chatContainer.contains(e.target) && !toggleBtn.contains(e.target)) {
+      toggleChat(false);
+    }
+  });
 
   // Esc key to close
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isOpen) toggleChat(false);
   });
+
+  // Dragging Logic
+  let isDragging = false;
+  let startX, startY;
+  let startLeft, startTop;
+
+  const header = $('.ai-chat-header');
+
+  header.addEventListener('mousedown', startDrag);
+  header.addEventListener('touchstart', startDrag, { passive: true });
+
+  function startDrag(e) {
+    if (e.target.closest('#ai-chat-close')) return;
+
+    isDragging = true;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+    startX = clientX;
+    startY = clientY;
+
+    const rect = chatContainer.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+
+    chatContainer.style.userSelect = 'none';
+
+    document.addEventListener('mousemove', doDrag);
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchmove', doDrag, { passive: false });
+    document.addEventListener('touchend', stopDrag);
+  }
+
+  function doDrag(e) {
+    if (!isDragging) return;
+    if (e.cancelable) e.preventDefault();
+
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+
+    let newLeft = startLeft + dx;
+    let newTop = startTop + dy;
+
+    // Clamp inside viewport boundaries
+    const maxLeft = window.innerWidth - chatContainer.offsetWidth;
+    const maxTop = window.innerHeight - chatContainer.offsetHeight;
+
+    newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+    newTop = Math.max(0, Math.min(newTop, maxTop));
+
+    chatContainer.style.bottom = 'auto';
+    chatContainer.style.right = 'auto';
+    chatContainer.style.left = `${newLeft}px`;
+    chatContainer.style.top = `${newTop}px`;
+  }
+
+  function stopDrag() {
+    isDragging = false;
+    chatContainer.style.userSelect = '';
+    document.removeEventListener('mousemove', doDrag);
+    document.removeEventListener('mouseup', stopDrag);
+    document.removeEventListener('touchmove', doDrag);
+    document.removeEventListener('touchend', stopDrag);
+  }
 
   // ------------------------------------------------------------- NLP router
   function getBotResponse(rawText) {
