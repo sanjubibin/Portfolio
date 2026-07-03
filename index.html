@@ -3,227 +3,186 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Developer Portfolio | Glassmorphic Dashboard</title>
-  <meta name="description" content="Professional developer portfolio showcasing expertise in Backend Development, Artificial Intelligence (LLMs & RAG), Cloud DevOps, and Web3/Blockchain smart contracts.">
+  <title>Sanju Antony — Backend &amp; AI Engineer</title>
+  <meta name="description" content="Portfolio of Sanju Antony — Backend &amp; AI engineer building scalable server-side systems, LLM &amp; MCP integrations, and Web3 smart-contract platforms.">
+  <meta property="og:title" content="Sanju Antony — Backend &amp; AI Engineer">
+  <meta property="og:description" content="Backend &amp; AI engineer building scalable server-side systems, LLM &amp; MCP integrations, and Web3 smart-contract platforms.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sanjubibin.github.io/Portfolio/">
+  <meta property="og:image" content="https://sanjubibin.github.io/Portfolio/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#050510">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Per-visit random starting point for the rotating accent-color hue
+       (style.css --hue). A negative animation-delay makes the animation
+       act as if it already ran that long, landing on a random hue —
+       same technique already used for the background blob orbit delays.
+       No effect on layout/content; if this never runs, --hue-delay just
+       falls back to 0s and the palette still drifts from its default. -->
+  <script>
+    document.documentElement.style.setProperty('--hue-delay', '-' + (Math.random() * 80).toFixed(1) + 's');
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 <body>
 
-  <!-- Animated Mesh Gradient Background -->
-  <div class="background-wrapper">
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
-    <div class="bg-orb orb-3"></div>
+  <!-- Ambient background: gradient mesh + drifting blobs + grain -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg__base"></div>
+    <div class="bg__blob bg__blob--1"></div>
+    <div class="bg__blob bg__blob--2"></div>
+    <div class="bg__blob bg__blob--3"></div>
+    <div class="bg__blob bg__blob--4"></div>
+    <div class="bg__grain"></div>
   </div>
 
-  <!-- Main Glassmorphic Dashboard Container -->
-  <main class="dashboard-container" id="main-container">
-    
-    <!-- Sidebar Left Navigation Panel -->
-    <aside class="sidebar">
-      
-      <!-- User Profile Header -->
-      <div class="profile-card">
-        <div class="avatar-wrapper">
-          <div class="avatar-container" id="avatar-container">
-            <!-- Initials or Image dynamically rendered -->
-          </div>
-        </div>
-        <h1 class="profile-name" id="profile-name">Developer Name</h1>
-        <p class="profile-title" id="profile-title">Backend Developer</p>
-        <p class="profile-subtitle" id="profile-subtitle">Full Stack Engineer</p>
+  <!-- Floating glass navbar -->
+  <header class="nav glass" id="site-nav">
+    <a class="nav__brand" href="#hero" data-gel data-magnet aria-label="Back to top">SA</a>
+    <nav class="nav__links" aria-label="Primary">
+      <a href="#about" data-gel data-magnet>About</a>
+      <a href="#projects" data-gel data-magnet>Projects</a>
+      <a href="#experience" data-gel data-magnet>Experience</a>
+      <a href="#contact" data-gel data-magnet>Contact</a>
+    </nav>
+    <a class="btn btn--sm glass nav__resume" href="Files/Resume.pdf" target="_blank" rel="noopener" data-gel data-magnet>Resume</a>
+    <span class="nav__progress" aria-hidden="true"></span>
+  </header>
+
+  <main id="main">
+
+    <!-- ============================ HERO ============================ -->
+    <section id="hero" class="hero" data-orb="off">
+      <div class="hero__canvas-wrap" aria-hidden="true">
+        <canvas id="orb-canvas"></canvas>
       </div>
+      <div class="hero__fallback-orb" aria-hidden="true"></div>
 
-      <!-- Navigation Tabs -->
-      <nav>
-        <ul class="nav-menu">
-          <li class="nav-item active">
-            <button data-section="overview" id="nav-btn-overview">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
-              </svg>
-              Overview
-            </button>
-          </li>
-          <li class="nav-item">
-            <button data-section="experience" id="nav-btn-experience">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Experience
-            </button>
-          </li>
-          <li class="nav-item">
-            <button data-section="skills" id="nav-btn-skills">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-              Skills Matrix
-            </button>
-          </li>
-          <li class="nav-item">
-            <button data-section="projects" id="nav-btn-projects">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              Projects
-            </button>
-          </li>
-          <li class="nav-item">
-            <button data-section="contact" id="nav-btn-contact">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              Contact Me
-            </button>
-          </li>
-        </ul>
-      </nav>
-
-      <!-- Sidebar Social Footer Icons -->
-      <footer class="sidebar-footer" id="sidebar-footer">
-        <!-- Rendered dynamically from config -->
-      </footer>
-    </aside>
-
-    <!-- Main Content Panel (Toggled by JS) -->
-    <section class="main-content">
-      
-      <!-- Theme Toggle Floating Button -->
-      <button id="theme-toggle" class="theme-toggle-btn-floating" aria-label="Toggle Dark and Light Mode">
-        <svg class="icon-moon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-        <svg class="icon-sun" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display: none;">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 9h-1m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M14 12a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-      </button>
-      
-      <!-- OVERVIEW / ABOUT SECTION -->
-      <div id="overview" class="content-section active">
-        <h2 class="section-title">Overview</h2>
-        <p class="section-subtitle">A snapshot of my professional profile, statistics, and quick contacts.</p>
-        
-        <div class="overview-grid">
-          <!-- About Card -->
-          <div class="glass-card about-card">
-            <h3 style="font-size: 1.4rem; margin-bottom: 0.5rem;">About Me</h3>
-            <p id="about-paragraph">Loading bio...</p>
-            
-            <div class="about-stats">
-              <div class="stat-box">
-                <div class="stat-number" id="stat-experience">0+</div>
-                <div class="stat-label">Years Exp</div>
-              </div>
-              <div class="stat-box">
-                <div class="stat-number" id="stat-projects">0</div>
-                <div class="stat-label">Projects</div>
-              </div>
-              <div class="stat-box" style="grid-column: span 2;">
-                <div class="stat-number" id="stat-skills">0</div>
-                <div class="stat-label">Active Technologies</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Contacts and Resume Card -->
-          <div class="glass-card quick-contact-card">
-            <div style="display: flex; flex-direction: column; gap: 1rem;">
-              <h3 style="font-size: 1.4rem; margin-bottom: 0.5rem;">Connect Info</h3>
-              <div class="contact-info-list" id="quick-contact-list">
-                <!-- Rendered dynamically from config -->
-              </div>
-            </div>
-            
-            <button class="btn-primary" id="resume-btn" style="margin-top: 1.5rem;">
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download CV / Resume
-            </button>
-          </div>
+      <div class="hero__content">
+        <p class="hero__eyebrow" id="hero-eyebrow">Backend &amp; AI Engineer</p>
+        <h1 class="hero__title" id="hero-title">Sanju Antony</h1>
+        <p class="hero__sub" id="hero-sub">Building intelligent systems across backend, AI, and Web3</p>
+        <div class="hero__cta">
+          <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Work</a>
+          <a class="btn glass" href="#contact" data-gel data-magnet>Contact</a>
         </div>
       </div>
-
-      <!-- WORK EXPERIENCE SECTION -->
-      <div id="experience" class="content-section">
-        <h2 class="section-title">Work History</h2>
-        <p class="section-subtitle">My professional timeline and key contributions in backend, AI, and smart contracts.</p>
-        
-        <div class="timeline" id="experience-timeline">
-          <!-- Rendered dynamically from config -->
-        </div>
-      </div>
-
-      <!-- SKILLS MATRIX SECTION -->
-      <div id="skills" class="content-section">
-        <h2 class="section-title">Skills Matrix</h2>
-        <p class="section-subtitle">Proficiency overview of languages, frameworks, cloud tooling, and blockchain contracts.</p>
-        
-        <div class="skills-container" id="skills-container">
-          <!-- Rendered dynamically from config -->
-        </div>
-      </div>
-
-      <!-- PROJECTS CATALOG SECTION -->
-      <div id="projects" class="content-section">
-        <h2 class="section-title">Projects Catalog</h2>
-        <p class="section-subtitle">A filterable showcase of smart contracts, backend applications, and AI pipelines.</p>
-        
-        <div class="project-filters" id="project-filters">
-          <!-- Rendered dynamically from config -->
-        </div>
-        
-        <div class="projects-grid" id="projects-grid">
-          <!-- Rendered dynamically from config -->
-        </div>
-      </div>
-
-      <!-- CONTACT INQUIRY SECTION -->
-      <div id="contact" class="content-section">
-        <h2 class="section-title">Contact Me</h2>
-        <p class="section-subtitle">Get in touch for collaborative opportunities, developer roles, or consulting queries.</p>
-        
-        <div class="contact-container">
-          <div class="glass-card">
-            <form class="contact-form" id="contact-me-form">
-              <div class="form-group-row">
-                <div class="form-group">
-                  <label for="contact-name">Full Name</label>
-                  <input type="text" id="contact-name" class="form-control" placeholder="John Doe" required>
-                </div>
-                <div class="form-group">
-                  <label for="contact-email">Email Address</label>
-                  <input type="email" id="contact-email" class="form-control" placeholder="john@example.com" required>
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="contact-subject">Subject</label>
-                <input type="text" id="contact-subject" class="form-control" placeholder="Project Collaboration Request" required>
-              </div>
-              <div class="form-group">
-                <label for="contact-message">Message Details</label>
-                <textarea id="contact-message" class="form-control" placeholder="Hey! Let's discuss a new project detail..." required></textarea>
-              </div>
-              
-              <div id="form-status" class="form-status-message"></div>
-              
-              <button type="submit" class="btn-primary" id="contact-submit-btn">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                Send Message Inquiry
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-
     </section>
+
+    <!-- ============================ ABOUT ============================ -->
+    <section id="about" class="section">
+      <div class="section__inner">
+        <h2 class="section__title reveal">About</h2>
+        <p class="section__sub reveal">A snapshot of my professional profile, statistics, and skill set.</p>
+
+        <div class="about__grid">
+          <article class="glass card about__card reveal" data-tilt>
+            <div class="about__avatar" id="about-avatar" aria-hidden="true"></div>
+            <div class="about__text">
+              <h3 id="about-name">Sanju Antony</h3>
+              <p class="about__bio" id="about-bio"></p>
+            </div>
+          </article>
+          <div class="about__stats" id="about-stats"></div>
+        </div>
+
+        <h3 class="skills__heading reveal">Skills Matrix</h3>
+        <p class="section__sub reveal">Proficiency overview of languages, frameworks, cloud tooling, and blockchain contracts.</p>
+        <div class="skills" id="skills-groups"></div>
+      </div>
+    </section>
+
+    <!-- ============================ PROJECTS ============================ -->
+    <section id="projects" class="section">
+      <div class="section__inner">
+        <h2 class="section__title reveal">Projects</h2>
+        <p class="section__sub reveal">A filterable showcase of smart contracts, backend applications, and AI pipelines.</p>
+        <div class="chips reveal" id="project-filters" role="group" aria-label="Filter projects by category"></div>
+        <div class="projects__grid" id="projects-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============================ EXPERIENCE ============================ -->
+    <section id="experience" class="section">
+      <div class="section__inner">
+        <h2 class="section__title reveal">Experience</h2>
+        <p class="section__sub reveal">My professional timeline, key contributions, and academic background.</p>
+        <div class="timeline" id="xp-timeline">
+          <span class="timeline__line" id="xp-line" aria-hidden="true"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ CONTACT ============================ -->
+    <section id="contact" class="section">
+      <div class="section__inner">
+        <h2 class="section__title reveal">Contact</h2>
+        <p class="section__sub reveal">Get in touch for collaborative opportunities, developer roles, or consulting queries.</p>
+
+        <div class="contact__grid">
+          <form class="glass card contact__form reveal" id="contact-form" novalidate>
+            <div class="form-row">
+              <label for="cf-name">Full Name</label>
+              <input class="form-control" id="cf-name" name="name" type="text" placeholder="John Doe" autocomplete="name" required>
+            </div>
+            <div class="form-row">
+              <label for="cf-email">Email Address</label>
+              <input class="form-control" id="cf-email" name="email" type="email" placeholder="john@example.com" autocomplete="email" required>
+            </div>
+            <div class="form-row">
+              <label for="cf-subject">Subject</label>
+              <input class="form-control" id="cf-subject" name="subject" type="text" placeholder="Project Collaboration Request" required>
+            </div>
+            <div class="form-row">
+              <label for="cf-message">Message Details</label>
+              <textarea class="form-control" id="cf-message" name="message" rows="5" placeholder="Hey! Let's discuss a new project detail..." required></textarea>
+            </div>
+            <p id="form-status" role="status" aria-live="polite"></p>
+            <button class="btn btn--primary glass" id="cf-submit" type="submit" data-gel>Send Message</button>
+          </form>
+
+          <aside class="glass card contact__aside reveal" data-tilt>
+            <h3>Connect Info</h3>
+            <ul class="contact__meta" id="contact-meta"></ul>
+            <div class="socials" id="social-links"></div>
+            <a class="btn glass contact__resume" id="resume-btn" href="Files/Resume.pdf" target="_blank" rel="noopener" data-gel>Download CV / Resume</a>
+          </aside>
+        </div>
+      </div>
+    </section>
+
   </main>
 
-  <!-- Load Data and Application Logic -->
-  <script src="config.js"></script>
-  <script src="app.js"></script>
+  <footer class="footer">
+    <div class="socials socials--footer" id="footer-socials"></div>
+    <p id="footer-line"></p>
+  </footer>
+
+  <!-- Content data -->
+  <script src="config.js" defer></script>
+  <!-- Animation engine (pinned) -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js" defer></script>
+  <!-- Site logic -->
+  <script src="app.js" defer></script>
+  <!-- Hero orb (independent module; page works fully without it) -->
+  <script type="module" src="orb.js"></script>
 </body>
 </html>
