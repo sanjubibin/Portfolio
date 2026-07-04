@@ -29,6 +29,15 @@
     toggleBtn.setAttribute('aria-expanded', String(isOpen));
     chatContainer.setAttribute('aria-hidden', String(!isOpen));
 
+    const isMobile = window.innerWidth <= 480;
+    const initialBottom = isMobile ? 18 : 24;
+    const initialRight = isMobile ? 18 : 24;
+    const targetBottom = isMobile ? 16 : 24;
+    const targetRight = isMobile ? 16 : 24;
+    const targetWidth = isMobile ? window.innerWidth - 32 : 380;
+    const targetHeight = isMobile ? Math.min(window.innerHeight * 0.72, 520) : 580;
+    const targetBorderRadius = isMobile ? '24px' : '20px';
+
     if (isOpen) {
       // Hide notification ping once opened
       const ping = $('.ai-chat-toggle__ping', toggleBtn);
@@ -40,16 +49,16 @@
       // Snap the container to button size/position to morph FROM
       chatContainer.style.left = 'auto';
       chatContainer.style.top = 'auto';
-      chatContainer.style.bottom = '24px';
-      chatContainer.style.right = '24px';
+      chatContainer.style.bottom = `${initialBottom}px`;
+      chatContainer.style.right = `${initialRight}px`;
 
       gsap.set(chatContainer, {
         display: 'flex',
         opacity: 0,
         width: 56,
         height: 56,
-        bottom: 24,
-        right: 24,
+        bottom: initialBottom,
+        right: initialRight,
         borderRadius: '50%',
         pointerEvents: 'none'
       });
@@ -60,9 +69,11 @@
 
       // Morph expand
       gsap.to(chatContainer, {
-        width: 380,
-        height: 580,
-        borderRadius: '20px',
+        width: targetWidth,
+        height: targetHeight,
+        bottom: targetBottom,
+        right: targetRight,
+        borderRadius: targetBorderRadius,
         opacity: 1,
         pointerEvents: 'all',
         duration: 0.45,
@@ -103,8 +114,8 @@
                 display: 'none',
                 left: 'auto',
                 top: 'auto',
-                bottom: 24,
-                right: 24,
+                bottom: initialBottom,
+                right: initialRight,
                 width: 56,
                 height: 56,
                 borderRadius: '50%'

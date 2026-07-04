@@ -398,15 +398,13 @@
   }
 
   // ========================================== POINTER FX (fine pointers)
-  // One shared rAF loop drives: the hovered card's 3D tilt, the magnetic
-  // pull, and the specular highlight position (--mx/--my CSS vars).
+  // One shared rAF loop drives: the hovered card's 3D tilt and the magnetic pull.
   function initPointerFX() {
     const state = {
       px: innerWidth / 2, py: innerHeight / 2,
       tiltEl: null, rect: null, rx: 0, ry: 0,
       magnetEl: null, magnetRect: null
     };
-    let glassEl = null;
 
     window.addEventListener('pointermove', (e) => {
       state.px = e.clientX;
@@ -426,7 +424,6 @@
         state.magnetEl = magnet;
         state.magnetRect = magnet.getBoundingClientRect();
       }
-      glassEl = e.target.closest('.glass');
     });
 
     document.addEventListener('pointerout', (e) => {
@@ -443,7 +440,6 @@
         state.magnetEl = null;
         state.magnetRect = null;
       }
-      if (glassEl && !glassEl.contains(e.relatedTarget)) glassEl = null;
     });
 
     function frame() {

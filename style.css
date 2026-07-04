@@ -73,10 +73,6 @@
 
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-
-  /* per-panel cursor-light coordinates (JS-driven) */
-  --mx: 50%;
-  --my: -20%;
 }
 
 /* ------------------------------------------------------------------- base */
@@ -232,7 +228,7 @@ ul { list-style: none; }
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* Specular highlight that tracks the cursor (via --mx / --my). */
+/* Specular highlight at the top edge of the panel. */
 .glass::before {
   content: "";
   position: absolute;
@@ -474,7 +470,6 @@ ul { list-style: none; }
   color: transparent;
   transition: opacity 0.8s ease;
 }
-.hero[data-orb="on"] .hero__title { opacity: 0; }
 
 .hero__sub { font-size: 1.15rem; color: var(--ink-low); font-weight: 300; }
 
@@ -878,7 +873,7 @@ ul { list-style: none; }
   .pill, .project-card__desc, .btn, .chip, .form-control, .nav__links a {
     transition-duration: 0.01s;
   }
-  #orb-canvas, .hero__fallback-orb, .hero__title { transition-duration: 0.01s; }
+  .hero__title { transition-duration: 0.01s; }
 }
 
 /* -------------------------------------------------------- ai clone widget */
@@ -1113,6 +1108,17 @@ ul { list-style: none; }
   .ai-chat-toggle {
     bottom: 18px;
     right: 18px;
+  }
+  .ai-chat-header__btn {
+    width: 32px;
+    height: 32px;
+  }
+  .ai-chat-form input {
+    font-size: 1rem;
+  }
+  #cli-terminal-input,
+  .cli-terminal__live-input {
+    font-size: 1rem;
   }
 }
 
@@ -1380,6 +1386,12 @@ ul { list-style: none; }
   color: var(--ink-low);
   cursor: pointer;
   line-height: 1;
+  padding: 0.5rem;
+  margin-right: -0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
 }
 .project-drawer__close:hover {
   color: var(--ink-hi);
