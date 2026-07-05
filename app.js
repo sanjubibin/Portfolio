@@ -129,9 +129,9 @@
 
   function renderStats() {
     const stats = [
-      { n: computeYears(), suffix: '+', label: 'Years Experience' },
-      { n: (CONFIG.projects || []).length, suffix: '', label: 'Projects' },
-      { n: (CONFIG.skills || []).reduce((n, g) => n + (g.items || []).length, 0), suffix: '', label: 'Technologies' }
+      { n: 99, suffix: '%', label: 'Uptime SLA' },
+      { n: (CONFIG.projects || []).length, suffix: '+', label: 'One-Click Templates' },
+      { n: (CONFIG.skills || []).reduce((n, g) => n + (g.items || []).length, 0), suffix: '+', label: 'Tech Integrations' }
     ];
     $('#about-stats').innerHTML = stats.map((s) => `
       <div class="glass stat reveal">
@@ -462,10 +462,6 @@
         gsap.set(state.magnetEl, { x: dx, y: dy });
       }
 
-
-
-
-
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -663,11 +659,12 @@
     });
   }
 
-  // Handle window resizing to keep indicator aligned
+  // Handle window resizing to keep indicator aligned and marquee filled
   window.addEventListener('resize', () => {
     if (currentActiveLink) {
       updateNavIndicator(currentActiveLink);
     }
+    initMarqueeDupes();
   });
 
   // ------------------------------------------------------- context highlights
@@ -1019,8 +1016,223 @@
     });
   }
 
+  // Dynamic marquee group duplicator to support massive screens / high zoom-out without gaps
+  function initMarqueeDupes() {
+    const tracks = $$('.tech-marquee__track');
+    const viewportWidth = window.innerWidth;
+
+    tracks.forEach((track) => {
+      const firstGroup = $('.tech-marquee__group', track);
+      if (!firstGroup) return;
+
+      const groupWidth = firstGroup.getBoundingClientRect().width;
+      if (!groupWidth) return;
+
+      // We need enough groups to cover at least twice the viewport width (plus a safety buffer)
+      const neededWidth = viewportWidth * 2.2;
+      const currentGroups = $$('.tech-marquee__group', track);
+      const currentCount = currentGroups.length;
+
+      let neededCount = Math.ceil(neededWidth / groupWidth);
+      if (neededCount < 2) neededCount = 2;
+
+      // Make sure neededCount is an even number to keep the TranslateX(-50%) infinite loop seamless
+      if (neededCount % 2 !== 0) neededCount += 1;
+
+      if (neededCount > currentCount) {
+        const clonesNeeded = neededCount - currentCount;
+        for (let i = 0; i < clonesNeeded; i++) {
+          const clone = firstGroup.cloneNode(true);
+          track.appendChild(clone);
+        }
+      }
+    });
+  }
+
+  // Resume Viewer Modal handler with download/print block protections
+  function initResumeModal() {
+    const modal = $('#resume-modal');
+    const closeBtn = $('#resume-modal-close');
+    const iframe = $('#resume-iframe');
+    const resumeBtn = $('#resume-btn');
+    const navResumeBtn = $('.nav__resume');
+
+    if (!modal || !closeBtn || !iframe) return;
+
+    const openModal = (e) => {
+      e.preventDefault();
+      // If resume is blocked, let the global warning interceptor handle it
+      if (CONFIG.features && CONFIG.features.blockResume) return;
+
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden'; // Lock background scrolling
+    };
+
+    const closeModal = () => {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = ''; // Restore background scrolling
+    };
+
+    if (resumeBtn) resumeBtn.addEventListener('click', openModal);
+    if (navResumeBtn) navResumeBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+
+    // Close on overlay backdrop clicks
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Close on Escape key
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+        closeModal();
+      }
+    });
+
+    // Discourage Print (Ctrl+P) and Save (Ctrl+S) inside parent window
+    window.addEventListener('keydown', (e) => {
+      if (modal.classList.contains('is-open')) {
+        if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'p' || e.key.toLowerCase() === 's')) {
+          e.preventDefault();
+        }
+      }
+    });
+
+    // Discourage right click on the modal container
+    modal.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Inject same-origin protection script inside the iframe document after load
+    iframe.addEventListener('load', () => {
+      try {
+        const frameDoc = iframe.contentWindow.document;
+        
+        // 1. Disable contextmenu (right-click) inside iframe
+        frameDoc.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+        });
+        
+        // 2. Disable Save / Print shortcuts inside iframe
+        frameDoc.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'p' || e.key.toLowerCase() === 's')) {
+            e.preventDefault();
+          }
+        });
+      } catch (err) {
+        console.warn('Cross-origin frame policy prevented document event blocking.', err);
+      }
+    });
+  }
+
+  // Dynamic Status Warning Modal for blocked socials/resume
+  function initStatusWarningModal() {
+    const modal = $('#status-warning-modal');
+    const closeBtn = $('#status-warning-close');
+    const iconEl = $('#status-warning-icon');
+    const titleEl = $('#status-warning-title');
+    const textEl = $('#status-warning-text');
+
+    if (!modal || !closeBtn || !iconEl || !titleEl || !textEl) return;
+
+    const showWarning = (type) => {
+      let icon = '🔗';
+      let title = 'Link Offline';
+      let text = 'This profile is currently offline for updates. Please reach out via email or contact form!';
+
+      if (type === 'resume') {
+        icon = '📄';
+        title = 'Resume Under Update';
+        text = 'My resume is currently undergoing updates with recent projects. Please feel free to reach out via email or check back shortly!';
+      } else if (type === 'github') {
+        icon = '💻';
+        title = 'GitHub Profile Offline';
+        text = 'My GitHub profile is currently undergoing repository maintenance and structure updates. Please check back shortly or connect with me via email!';
+      } else if (type === 'linkedin') {
+        icon = '💼';
+        title = 'LinkedIn Profile Offline';
+        text = 'My LinkedIn profile is currently offline for updates. Please feel free to reach out via email or send a message using the contact form!';
+      } else if (type === 'instagram') {
+        icon = '📸';
+        title = 'Instagram Offline';
+        text = 'My Instagram profile is temporarily offline for maintenance. Please check back shortly or reach out via email/contact form!';
+      }
+
+      iconEl.textContent = icon;
+      titleEl.textContent = title;
+      textEl.textContent = text;
+
+      modal.classList.add('is-open');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden'; // Lock background scrolling
+    };
+
+    const closeModal = () => {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = ''; // Restore background scrolling
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) {
+        closeModal();
+      }
+    });
+
+    // Intercept clicks globally
+    document.addEventListener('click', (e) => {
+      const anchor = e.target.closest('a');
+      if (!anchor) return;
+
+      const href = anchor.getAttribute('href') || '';
+      const ariaLabel = (anchor.getAttribute('aria-label') || '').toLowerCase();
+      const textContent = (anchor.textContent || '').toLowerCase();
+      const classes = anchor.className;
+
+      // 1. Check Resume
+      const isResume = classes.includes('nav__resume') || 
+                       classes.includes('contact__resume') || 
+                       href.includes('Resume.pdf');
+      if (isResume && CONFIG.features && CONFIG.features.blockResume) {
+        e.preventDefault();
+        showWarning('resume');
+        return;
+      }
+
+      // 2. Check GitHub
+      const isGitHub = href.includes('github.com') || ariaLabel.includes('github') || textContent.includes('github');
+      if (isGitHub && CONFIG.features && CONFIG.features.blockGitHub) {
+        e.preventDefault();
+        showWarning('github');
+        return;
+      }
+
+      // 3. Check LinkedIn
+      const isLinkedIn = href.includes('linkedin.com') || ariaLabel.includes('linkedin') || textContent.includes('linkedin');
+      if (isLinkedIn && CONFIG.features && CONFIG.features.blockLinkedIn) {
+        e.preventDefault();
+        showWarning('linkedin');
+        return;
+      }
+
+      // 4. Check Instagram
+      const isInstagram = href.includes('instagram.com') || ariaLabel.includes('instagram') || textContent.includes('instagram');
+      if (isInstagram && CONFIG.features && CONFIG.features.blockInstagram) {
+        e.preventDefault();
+        showWarning('instagram');
+        return;
+      }
+    });
+  }
+
   // ================================================================= INIT
   renderHero();
+  initMarqueeDupes();
   renderAbout();
   renderStats();
   renderSkills();
@@ -1037,6 +1249,8 @@
   initAudioEvents();
   initContextHighlights();
   initProjectDrawer();
+  initResumeModal();
+  initStatusWarningModal();
 
   if (HAS_GSAP) {
     gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
@@ -1044,7 +1258,217 @@
       initGelButtons();
       initScrollFX();
       initTaglineRotator();
+      initScrollytelling();
+      initCanvasDots();
       if (!COARSE) initPointerFX();
     }
+  }
+
+  // ========================================================= SCROLLYTELLING ENGINE
+  function initScrollytelling() {
+    if (!HAS_GSAP || REDUCED) return;
+    
+    const svg = $('#synapse-core-svg');
+    if (!svg) return;
+    
+    // Set initial states for Scene 1 (Hero sphere)
+    gsap.set(['#layer-ai', '#layer-web3'], { y: 0, opacity: 0.7 });
+    gsap.set('#layer-backend', { opacity: 1 });
+    gsap.set(['.core-layer__text', '#cartridges', '#pipeline-rail', '#pipeline-pulse'], { opacity: 0 });
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: '#main',
+        start: 'top top',
+        end: 'bottom bottom',
+        scrub: 0.6,
+        invalidateOnRefresh: true
+      }
+    });
+
+    // ---- Scene 1 -> Scene 2 (Scroll to features): Disks split vertically
+    tl.to('#layer-ai', { y: -18, duration: 2, ease: 'power2.out' }, 0)
+      .to('#layer-web3', { y: 18, duration: 2, ease: 'power2.out' }, 0)
+      .to('.core-layer__text', { opacity: 0.8, duration: 1.5, stagger: 0.1 }, 0.5)
+
+    // ---- Scene 2 -> Scene 3 (Scroll to solutions): Rotate and slide cartridges
+    tl.to(['#layer-ai', '#layer-web3', '#layer-backend'], {
+      y: 0,
+      scaleX: 0.8,
+      scaleY: 0.3,
+      opacity: 0.4,
+      duration: 2,
+      ease: 'power2.inOut'
+    }, 3)
+      .to('.core-layer__text', { opacity: 0, duration: 1 }, 3)
+      .to('#cartridges', { opacity: 1, duration: 1.5 }, 3.5)
+      .fromTo('#cartridge-ai', { x: 50 }, { x: 0, duration: 1.8, ease: 'back.out(1.2)' }, 3.8)
+      .fromTo('#cartridge-web3', { x: 50 }, { x: 0, duration: 1.8, ease: 'back.out(1.2)' }, 4.1)
+      .fromTo('#cartridge-fintech', { x: 50 }, { x: 0, duration: 1.8, ease: 'back.out(1.2)' }, 4.4)
+
+    // ---- Scene 3 -> Scene 4 (Scroll to timeline): Rails and timeline pulse
+    tl.to('#cartridges', { opacity: 0, duration: 1.5 }, 6)
+      .to('#core-glow-circle', { scale: 0.3, opacity: 0.1, duration: 1.5 }, 6)
+      .to('#pipeline-rail', { opacity: 1, duration: 1 }, 6.5)
+      .to('#pipeline-pulse', { opacity: 1, duration: 0.5 }, 6.8)
+      .to('#pipeline-pulse', { attr: { cy: 95 }, duration: 4, ease: 'none' }, 7);
+
+    // ---- Floating Data Packets rising inside the pinned scene
+    const canvas = $('#scrolly-packet-canvas');
+    if (!canvas) return;
+
+    const terms = CONFIG.backgroundPackets || ['data', 'exec', 'mcp', 'tx:hash', 'call_llm()', 'solidity:mint', 'GET /api', '200 OK', 'block:44', 'docker:run', 'FastAPI', 'Node.js', 'ChromaDB', 'AWS:S3'];
+    
+    function spawnPacket() {
+      if (document.hidden) return;
+      const el = document.createElement('div');
+      el.className = 'scrolly-packet';
+      el.textContent = terms[Math.floor(Math.random() * terms.length)];
+      
+      const left = 15 + Math.random() * 70;
+      el.style.left = `${left}%`;
+      el.style.bottom = '-30px';
+      canvas.appendChild(el);
+
+      const duration = 8 + Math.random() * 8;
+      const xDrift = (Math.random() - 0.5) * 40;
+
+      gsap.to(el, {
+        y: -innerHeight - 50,
+        x: xDrift,
+        opacity: 0.85,
+        duration: duration,
+        ease: 'none',
+        onComplete: () => {
+          el.remove();
+          spawnPacket();
+        }
+      });
+    }
+
+    const maxPackets = COARSE ? 2 : 5;
+    for (let i = 0; i < maxPackets; i++) {
+      setTimeout(spawnPacket, i * 1800);
+    }
+  }
+
+  // ========================================================= BACKGROUND INTERACTIVE CANVAS DOTS
+  function initCanvasDots() {
+    const canvas = $('#bg-canvas-dots');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    let dots = [];
+    let spacing = 22; // Very compact dot grid spacing
+    
+    const state = {
+      mx: -1000, my: -1000,
+      active: false
+    };
+    
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx.scale(dpr, dpr);
+      
+      // Build/Rebuild the coordinate grid
+      dots = [];
+      const cols = Math.ceil(window.innerWidth / spacing) + 1;
+      const rows = Math.ceil(window.innerHeight / spacing) + 1;
+      
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          const bx = c * spacing;
+          const by = r * spacing;
+          dots.push({
+            x: bx, y: by,
+            baseX: bx, baseY: by,
+            vx: 0, vy: 0
+          });
+        }
+      }
+    }
+    
+    window.addEventListener('resize', resize, { passive: true });
+    
+    window.addEventListener('pointermove', (e) => {
+      state.mx = e.clientX;
+      state.my = e.clientY;
+      state.active = true;
+    }, { passive: true });
+    
+    document.addEventListener('pointerleave', () => {
+      state.active = false;
+      state.mx = -1000;
+      state.my = -1000;
+    });
+    
+    resize();
+    
+    const forceRadius = 110;
+    const forceRadiusSq = forceRadius * forceRadius;
+    
+    function loop() {
+      if (document.hidden) {
+        requestAnimationFrame(loop);
+        return;
+      }
+      
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+      
+      const time = Date.now() * 0.04;
+      
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        
+        const dx = state.mx - dot.x;
+        const dy = state.my - dot.y;
+        const distSq = dx * dx + dy * dy;
+        
+        let force = 0;
+        let angle = 0;
+        let r = 0.9;
+        let color = 'rgba(15, 23, 42, 0.16)';
+        
+        // Repulsion physics inside the force bubble
+        if (state.active && distSq < forceRadiusSq) {
+          const dist = Math.sqrt(distSq);
+          force = (forceRadius - dist) / forceRadius;
+          angle = Math.atan2(dy, dx);
+          
+          // Push away from cursor
+          dot.vx -= Math.cos(angle) * force * 1.6;
+          dot.vy -= Math.sin(angle) * force * 1.6;
+          
+          // Shifting rainbow gradient color for active dots
+          const hue = (dot.baseX + dot.baseY + time) % 360;
+          color = `hsla(${hue}, 85%, 55%, ${0.22 + force * 0.65})`;
+          r = 0.9 + force * 1.4;
+        } else {
+          // Standard dark-slate background dots
+          color = 'rgba(15, 23, 42, 0.16)';
+          r = 0.9;
+        }
+        
+        // Spring return forces to snap back to base anchors
+        const accelX = (dot.baseX - dot.x) * 0.08;
+        const accelY = (dot.baseY - dot.y) * 0.08;
+        dot.vx = (dot.vx + accelX) * 0.80;
+        dot.vy = (dot.vy + accelY) * 0.80;
+        
+        dot.x += dot.vx;
+        dot.y += dot.vy;
+        
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+      
+      requestAnimationFrame(loop);
+    }
+    
+    requestAnimationFrame(loop);
   }
 })();

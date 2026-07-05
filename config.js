@@ -5,6 +5,17 @@
 // =========================================================================
 
 const CONFIG = {
+  // Floating background data packet terms (seen floating up in the scrollytelling scene)
+  backgroundPackets: [
+    'data', 'exec', 'mcp', 'tx:hash', 'call_llm()', 
+    'solidity:mint', 'GET /api', '200 OK', 'block:44', 
+    'docker:run', 'FastAPI', 'Node.js', 'ChromaDB', 'AWS:S3'
+  ],
+  // Terminal prompt customization (username@hostname:~$)
+  terminalPrompt: {
+    username: 'visitor',
+    hostname: "sanju's_portfolio"
+  },
   profile: {
     name: "Sanju Antony",
     title: "Backend & AI Engineer",
@@ -180,7 +191,15 @@ const CONFIG = {
       duration: "June 2018 - April 2022",
       description: "CGPA: 7.82"
     }
-  ]
+  ],
+
+  // Feature Flags
+  features: {
+    blockResume: true,
+    blockGitHub: true,
+    blockLinkedIn: true,
+    blockInstagram: true
+  }
 };
 
 // Export config for ES Modules if imported, or bind to window for standard script tag usage
