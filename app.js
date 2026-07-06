@@ -667,15 +667,15 @@
       .from('.hero__sub', { y: 24, autoAlpha: 0, duration: 0.9, ease: 'power3.out' }, '-=0.7')
       .from('.hero__cta .btn', { y: 20, autoAlpha: 0, duration: 0.8, stagger: 0.09, ease: 'power3.out' }, '-=0.62');
 
-    // Float-up + blur-in reveals. Hidden state applied here (JS only).
+    // Snappy float-up + blur-in reveals triggered earlier.
     const reveals = $$('.reveal');
-    gsap.set(reveals, { autoAlpha: 0, y: 44, filter: 'blur(12px)' });
+    gsap.set(reveals, { autoAlpha: 0, y: 16, filter: 'blur(4px)' });
     ScrollTrigger.batch(reveals, {
-      start: 'top 85%',
+      start: 'top 92%',
       once: true,
       onEnter: (batch) => gsap.to(batch, {
         autoAlpha: 1, y: 0, filter: 'blur(0px)',
-        duration: 0.9, ease: 'back.out(1.4)', stagger: 0.08,
+        duration: 0.4, ease: 'power2.out', stagger: 0.02,
         clearProps: 'filter',
         onComplete: () => {
           if (COARSE) addIdleFloat(batch);
@@ -689,16 +689,16 @@
       })
     });
 
-    // Skill pills pop in with a spring stagger.
+    // Skill pills pop in instantly with faster spring stagger.
     $$('.skill-group').forEach((group) => {
       const pills = $$('.pill', group);
       ScrollTrigger.create({
         trigger: group,
-        start: 'top 85%',
+        start: 'top 92%',
         once: true,
         onEnter: () => gsap.from(pills, {
-          scale: 0.6, autoAlpha: 0, duration: 0.5,
-          ease: 'back.out(1.8)', stagger: 0.045, clearProps: 'all'
+          scale: 0.6, autoAlpha: 0, duration: 0.3,
+          ease: 'back.out(1.8)', stagger: 0.015, clearProps: 'all'
         })
       });
     });
@@ -735,8 +735,8 @@
       });
       $$('.xp-dot').forEach((dot) => {
         gsap.from(dot, {
-          scale: 0, duration: 0.6, ease: 'back.out(2.5)',
-          scrollTrigger: { trigger: dot.closest('.xp-entry'), start: 'top 82%', once: true }
+          scale: 0, duration: 0.3, ease: 'back.out(2.5)',
+          scrollTrigger: { trigger: dot.closest('.xp-entry'), start: 'top 88%', once: true }
         });
       });
     }
@@ -2014,8 +2014,19 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     
     const state = {
       mx: -1000, my: -1000,
-      active: false
+      active: false,
+      targetStrength: 0,
+      currentStrength: 0
     };
+
+    let isLooping = false;
+    
+    function wake() {
+      if (!isLooping) {
+        isLooping = true;
+        requestAnimationFrame(loop);
+      }
+    }
     
     function resize() {
       const dpr = window.devicePixelRatio || 1;
@@ -2039,20 +2050,57 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
           });
         }
       }
+      wake();
     }
     
     window.addEventListener('resize', resize, { passive: true });
     
+    let moveTimeout = null;
+    
     window.addEventListener('pointermove', (e) => {
+      // Check if cursor is over any interactive container, tab, or glass element from the landing page
+      const isOverInteractive = e.target && (
+        e.target.closest('.glass') || 
+        e.target.closest('a') || 
+        e.target.closest('button') || 
+        e.target.closest('.cli-terminal') ||
+        e.target.closest('.ai-chat-container') ||
+        e.target.closest('.resume-modal')
+      );
+
+      if (isOverInteractive) {
+        clearTimeout(moveTimeout);
+        state.active = false;
+        state.targetStrength = 0;
+        wake();
+        return;
+      }
+
       state.mx = e.clientX;
       state.my = e.clientY;
       state.active = true;
+      state.targetStrength = 1;
+      wake();
+      
+      clearTimeout(moveTimeout);
+      moveTimeout = setTimeout(() => {
+        state.active = false;
+        state.targetStrength = 0;
+        wake();
+      }, 150);
     }, { passive: true });
     
     document.addEventListener('pointerleave', () => {
+      clearTimeout(moveTimeout);
       state.active = false;
-      state.mx = -1000;
-      state.my = -1000;
+      state.targetStrength = 0;
+      wake();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        wake();
+      }
     });
     
     resize();
@@ -2062,13 +2110,22 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     
     function loop() {
       if (document.hidden) {
-        requestAnimationFrame(loop);
+        isLooping = false;
         return;
       }
       
       ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
       
       const time = Date.now() * 0.04;
+      let animating = false;
+
+      // Ease the active repulsion strength smoothly
+      state.currentStrength += (state.targetStrength - state.currentStrength) * 0.08;
+      if (state.currentStrength < 0.002) {
+        state.currentStrength = 0;
+      } else {
+        animating = true;
+      }
       
       for (let i = 0; i < dots.length; i++) {
         const dot = dots[i];
@@ -2079,27 +2136,20 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
         
         let force = 0;
         let angle = 0;
-        let r = 0.9;
-        let color = 'rgba(15, 23, 42, 0.16)';
+        let ratio = 0;
         
-        // Repulsion physics inside the force bubble
-        if (state.active && distSq < forceRadiusSq) {
+        // Repulsion physics inside the force bubble (calculated when strength is fading in/out)
+        if (state.currentStrength > 0 && distSq < forceRadiusSq) {
           const dist = Math.sqrt(distSq);
           force = (forceRadius - dist) / forceRadius;
           angle = Math.atan2(dy, dx);
           
-          // Push away from cursor
-          dot.vx -= Math.cos(angle) * force * 1.6;
-          dot.vy -= Math.sin(angle) * force * 1.6;
+          // Push away from cursor scaled by current strength
+          dot.vx -= Math.cos(angle) * force * 1.6 * state.currentStrength;
+          dot.vy -= Math.sin(angle) * force * 1.6 * state.currentStrength;
           
-          // Shifting rainbow gradient color for active dots
-          const hue = (dot.baseX + dot.baseY + time) % 360;
-          color = `hsla(${hue}, 85%, 55%, ${0.22 + force * 0.65})`;
-          r = 0.9 + force * 1.4;
-        } else {
-          // Standard dark-slate background dots
-          color = 'rgba(15, 23, 42, 0.16)';
-          r = 0.9;
+          ratio = force * state.currentStrength;
+          animating = true;
         }
         
         // Spring return forces to snap back to base anchors
@@ -2111,15 +2161,34 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
         dot.x += dot.vx;
         dot.y += dot.vy;
         
+        // Check if dot is still in motion or displaced from home
+        if (Math.abs(dot.vx) > 0.005 || Math.abs(dot.vy) > 0.005 || Math.abs(dot.x - dot.baseX) > 0.05 || Math.abs(dot.y - dot.baseY) > 0.05) {
+          animating = true;
+        }
+        
+        // Smoothly blend color and radius from standard slate (hsla(222, 47%, 11%, 0.16)) to active rainbow HSL
+        const activeHue = (dot.baseX + dot.baseY + time) % 360;
+        const activeAlpha = 0.35 + force * 0.65; // Max opacity 1.0
+        
+        const h = 222 + (activeHue - 222) * ratio;
+        const s = 47 + (100 - 47) * ratio; // Interpolate saturation to 100% (pure color)
+        const l = 11 + (50 - 11) * ratio;  // Interpolate lightness to 50% (peak vibrancy)
+        const a = 0.16 + (activeAlpha - 0.16) * ratio;
+        
+        const color = `hsla(${h}, ${s}%, ${l}%, ${a})`;
+        const r = 0.9 + (force * 2.1) * state.currentStrength; // Max radius 3.0 for better visual presence
+        
         ctx.beginPath();
         ctx.arc(dot.x, dot.y, r, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
       }
       
-      requestAnimationFrame(loop);
+      if (animating) {
+        requestAnimationFrame(loop);
+      } else {
+        isLooping = false;
+      }
     }
-    
-    requestAnimationFrame(loop);
   }
 })();
