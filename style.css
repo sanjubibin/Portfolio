@@ -525,15 +525,21 @@ ul { list-style: none; }
   transform: translateY(-1px) scale(1.03);
 }
 
-/* Scroll progress along the bottom edge of the nav pill. */
+/* Scroll progress container to clip the bar along the curved bottom edge of the nav pill. */
+.nav__progress-container {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
 .nav__progress {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   height: 2.5px;
-  border-radius: 0 0 22px 22px;
-  z-index: 3;
   background: linear-gradient(90deg, hsl(var(--h-accent)), hsl(var(--h-violet)), hsl(var(--h-aqua)));
   transform: scaleX(0);
   transform-origin: left center;
@@ -2021,27 +2027,7 @@ ul { list-style: none; }
    SCROLLYTELLING ENGINE & PLATFORM VISUALS
    ========================================================================= */
 
-/* Scrollytelling Pinned Grid Layout (Immersive Background Core) */
-.scrolly__scene-col {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0; /* behind all interactive cards */
-  opacity: 0.18; /* soft background watermark visibility */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-.scrolly__scene-inner {
-  width: min(85vmin, 540px);
-  aspect-ratio: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+
 
 #main {
   position: relative;
@@ -2073,56 +2059,7 @@ ul { list-style: none; }
   display: block;
 }
 
-/* SVG Synapse Core & Orbiting Rings */
-.synapse-core-svg {
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 20px 48px rgba(15, 23, 42, 0.08));
-}
-.core-orbit {
-  transform-origin: 50% 50%;
-  animation: core-spin 60s linear infinite;
-}
-@keyframes core-spin {
-  to { transform: rotate(360deg); }
-}
 
-.core-layer {
-  transform-origin: 50% 50%;
-  transition: opacity 0.4s ease, transform 0.4s var(--ease-spring);
-}
-.core-layer__disk {
-  fill: rgba(255, 255, 255, 0.45);
-  stroke: url(#layer-border-grad);
-  stroke-width: 1.5;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-}
-.core-layer__node {
-  filter: drop-shadow(0 0 8px currentColor);
-}
-.core-layer__text {
-  fill: var(--ink-hi);
-  font-size: 2.2px;
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.8;
-}
-
-/* Cartridges (Scene 3 Solutions) */
-.core-cartridges {
-  transition: opacity 0.4s ease;
-}
-.cartridge-box {
-  fill: rgba(255, 255, 255, 0.65);
-  stroke: url(#layer-border-grad);
-  stroke-width: 1.2;
-  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.06));
-}
-.cartridge-group {
-  transform-origin: 50% 50%;
-  transition: transform 0.4s var(--ease-spring), opacity 0.4s ease;
-}
 
 /* Infinite Sliding Tech Blocks Marquee */
 .tech-marquee {
@@ -2192,30 +2129,6 @@ ul { list-style: none; }
   0% { transform: translateX(-50%); }
   100% { transform: translateX(0); }
 }
-
-/* Floating Packet Canvas & Packets */
-.scrolly__packet-canvas {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 1;
-}
-.scrolly-packet {
-  position: absolute;
-  background: hsl(var(--h-accent) / 0.14);
-  border: 1px solid hsl(var(--h-accent) / 0.3);
-  color: hsl(var(--h-accent));
-  font-family: var(--font-code);
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  white-space: nowrap;
-  will-change: transform, opacity;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-}
-
 /* ---------------------------------------------------- resume viewer modal */
 .resume-modal {
   position: fixed;
