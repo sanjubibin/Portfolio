@@ -2,7 +2,6 @@
   'use strict';
 
   const CONFIG = window.CONFIG;
-  const HAS_GSAP = !!(window.gsap && window.ScrollToPlugin);
 
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
@@ -29,6 +28,21 @@
     toggleBtn.setAttribute('aria-expanded', String(isOpen));
     chatContainer.setAttribute('aria-hidden', String(!isOpen));
 
+    const isMobile = window.innerWidth <= 480;
+    const initialBottom = isMobile ? 18 : 24;
+    const initialRight = isMobile ? 18 : 24;
+    const targetBottom = isMobile ? 16 : 24;
+    const targetRight = isMobile ? 16 : 24;
+    const targetWidth = isMobile ? window.innerWidth - 32 : 380;
+    const targetHeight = isMobile ? Math.min(window.innerHeight * 0.72, 520) : 580;
+    const targetBorderRadius = isMobile ? '24px' : '20px';
+
+    // Measure toggle button's current dimensions to start/return the morph dynamically
+    const toggleRect = toggleBtn.getBoundingClientRect();
+    const toggleW = toggleRect.width || (isMobile ? 44 : 112);
+    const toggleH = toggleRect.height || 44;
+    const toggleBR = window.getComputedStyle(toggleBtn).borderRadius || (isMobile ? '50%' : '22px');
+
     if (isOpen) {
       // Hide notification ping once opened
       const ping = $('.ai-chat-toggle__ping', toggleBtn);
@@ -40,17 +54,17 @@
       // Snap the container to button size/position to morph FROM
       chatContainer.style.left = 'auto';
       chatContainer.style.top = 'auto';
-      chatContainer.style.bottom = '24px';
-      chatContainer.style.right = '24px';
+      chatContainer.style.bottom = `${initialBottom}px`;
+      chatContainer.style.right = `${initialRight}px`;
 
       gsap.set(chatContainer, {
         display: 'flex',
         opacity: 0,
-        width: 56,
-        height: 56,
-        bottom: 24,
-        right: 24,
-        borderRadius: '50%',
+        width: toggleW,
+        height: toggleH,
+        bottom: initialBottom,
+        right: initialRight,
+        borderRadius: toggleBR,
         pointerEvents: 'none'
       });
       gsap.set(chatContainer.children, { opacity: 0 });
@@ -60,9 +74,11 @@
 
       // Morph expand
       gsap.to(chatContainer, {
-        width: 380,
-        height: 580,
-        borderRadius: '20px',
+        width: targetWidth,
+        height: targetHeight,
+        bottom: targetBottom,
+        right: targetRight,
+        borderRadius: targetBorderRadius,
         opacity: 1,
         pointerEvents: 'all',
         duration: 0.45,
@@ -79,35 +95,51 @@
       // Kill any in-flight tweens
       gsap.killTweensOf([chatContainer, chatContainer.children, toggleBtn]);
 
-      // *** Restore toggle IMMEDIATELY so it can never get stuck invisible ***
+      // Restore toggle immediately
       gsap.set(toggleBtn, { pointerEvents: 'all', opacity: 1 });
 
-      // Fade out chat content, then shrink container
+      // Fade out chat content, then shrink container back to the button location
       gsap.to(chatContainer.children, {
         opacity: 0,
         y: -8,
         duration: 0.18,
         ease: 'power2.in',
         onComplete: () => {
-          gsap.to(chatContainer, {
-            width: 56,
-            height: 56,
-            borderRadius: '50%',
+          const buttonLeft = window.innerWidth - toggleW - initialRight;
+          const buttonTop = window.innerHeight - toggleH - initialBottom;
+          const isDragged = chatContainer.style.bottom === 'auto';
+
+          const shrinkTargets = {
+            width: toggleW,
+            height: toggleH,
+            borderRadius: toggleBR,
             opacity: 0,
             pointerEvents: 'none',
-            duration: 0.35,
-            ease: 'power3.inOut',
+            duration: 0.42,
+            ease: 'power3.inOut'
+          };
+
+          if (isDragged) {
+            shrinkTargets.left = buttonLeft;
+            shrinkTargets.top = buttonTop;
+          } else {
+            shrinkTargets.bottom = initialBottom;
+            shrinkTargets.right = initialRight;
+          }
+
+          gsap.to(chatContainer, {
+            ...shrinkTargets,
             onComplete: () => {
               // Reset container to hidden default state
               gsap.set(chatContainer, {
                 display: 'none',
                 left: 'auto',
                 top: 'auto',
-                bottom: 24,
-                right: 24,
-                width: 56,
-                height: 56,
-                borderRadius: '50%'
+                bottom: initialBottom,
+                right: initialRight,
+                width: toggleW,
+                height: toggleH,
+                borderRadius: toggleBR
               });
             }
           });
@@ -192,6 +224,7 @@
     chatContainer.style.top = `${newTop}px`;
   }
 
+  // Restore drag cleanup
   function stopDrag() {
     isDragging = false;
     chatContainer.style.userSelect = '';
@@ -199,69 +232,85 @@
     document.removeEventListener('mouseup', stopDrag);
     document.removeEventListener('touchmove', doDrag);
     document.removeEventListener('touchend', stopDrag);
-  }
-
-  // ------------------------------------------------------------- NLP router
+  }  // ------------------------------------------------------------- NLP router
   function getBotResponse(rawText) {
     const text = rawText.toLowerCase().replace(/[.,/#!$%^&*;:{}=\-_`~()?]/g, '');
 
     // Intent: Greetings
     if (/\b(hi|hello|hey|yo|greetings|hola|good morning|good afternoon)\b/.test(text)) {
-      return `Hello! I'm Sanju's AI Clone. How can I help you explore my portfolio today? Ask me about my experience, projects, or technical skills!`;
+      return `Hello! I'm Sanju's AI Agent. How can I help you explore Sanju Antony's professional credentials today? Ask me about his experience, technical skills, projects, or how to contact him!`;
     }
 
-    // Intent: Skills
-    if (/\b(skill|skills|technologies|languages|frameworks|databases|python|solidity|fastapi|django|node|javascript|aws|docker)\b/.test(text)) {
-      return `Here is a summary of my technical skills:
-• **Backend Frameworks & Languages:** Python, FastAPI, Django, Node.js, Java.
-• **AI & Machine Learning:** LLMs (Gemini, Claude, OpenAI), Vector Databases (Pinecone, ChromaDB), Model Context Protocol (MCP) server development.
-• **Blockchain & Web3:** Solidity, Smart Contracts (ERC-20, ERC-721), Hardhat, Ethers.js, MetaMask.
-• **Cloud & DevOps:** Docker, AWS (EC2, Lambda, S3, IAM), Git/GitHub.`;
+    // Intent: Features / Skills
+    if (/\b(features|skills|technologies|capabilities|fastapi|python|solidity|frameworks|runtimes|mcp|model context protocol|servers|languages|stack)\b/.test(text)) {
+      return `Sanju Antony specializes in backend engineering and AI developments:
+• **Backend Frameworks:** Heavy production experience with Python (FastAPI, Django MVC) and Node.js backend pipelines, optimizing ORM databases to drop API latency.
+• **Generative AI & LLMs:** Built custom Model Context Protocol (MCP) servers and LLM chatbot assistants integrating Pinecone and ChromaDB vector indexing.
+• **Web3 Ledger Architectures:** Authored and audited Solidity smart contracts (ERC-20/721 standards) using Hardhat testbeds and MetaMask nodes.`;
     }
 
-    // Intent: Experience
-    if (/\b(experience|work|jobs|company|ionixx|history|career|employer|role|roles)\b/.test(text)) {
-      return `I am currently an **AI & Web3 Software Engineer** at **Ionixx Technologies** (October 2023 - Present), where I lead generative AI integrations (Anthropic services) and Web3 asset tokenization platforms.
-
-Before that, I worked as a **Backend Developer Intern** at Ionixx, migrating legacy Java Spring Boot microservice APIs to modern Python Django MVC architectures.`;
+    // Intent: Pricing
+    if (/\b(pricing|price|cost|tiers|subscribe|paid|free|sandbox|plans|plan|hiring|rates|freelance|job)\b/.test(text)) {
+      return `For consulting rates, freelance projects, or full-time recruitment queries, feel free to drop a line via the **Get In Touch** message form on this page, or email Sanju directly at **sanjubibin44@gmail.com**!`;
     }
 
-    // Intent: Projects
-    if (/\b(projects|apps|portfolio|code|repos|github|mifos|gpt|tokenization|dashboard)\b/.test(text)) {
-      const projectsList = (CONFIG.projects || []).map(p => `• **${p.title}:** ${p.description}`).join('\n\n');
-      return `Here are some featured projects I've built:\n\n${projectsList}\n\nFeel free to filter and inspect them in the **Projects** section of the page!`;
+    // Intent: Roadmap / Experience
+    if (/\b(roadmap|milestones|timeline|experience|version|release|beta|work|job|role|history|career)\b/.test(text)) {
+      return `Sanju Antony is currently an **AI & Web3 Software Engineer** at **Ionixx Technologies**:
+• **Generative AI & MCP:** Leading core R&D on Anthropic API tools and custom Model Context Protocol (MCP) data-context integrations.
+• **Smart Contracts:** Deploys Solidity ledgers and Gnosis Safe multisig assets.
+• **Microservice Migration:** Previously migrated legacy Java microservices to Python Django backend containers, achieving a 35% latency drop.`;
     }
 
-    // Intent: MCP
-    if (/\b(mcp|model context protocol|servers|server|client|agents|claude code|agent)\b/.test(text)) {
-      return `I specialize in the **Model Context Protocol (MCP)**. I design and build custom MCP servers and clients to supply consent-based, secure context directly to LLMs (like Claude and Gemini). This allows AI agents to interact with secure databases, search the web, and run code securely.`;
+    // Intent: Templates / Projects
+    if (/\b(templates|projects|code|one-click|deploy|fintech|plaid|chat|ledger|portfolio)\b/.test(text)) {
+      const templateList = (CONFIG.projects || []).map(p => `• **${p.title}:** ${p.description}`).join('\n\n');
+      return `Some of Sanju's featured projects and systems include:\n\n${templateList}\n\nSelect a card in the **Projects** grid to inspect details and architectural breakdowns!`;
     }
 
-    // Intent: Contact
-    if (/\b(contact|hire|email|linkedin|reach|message|phone|gmail|talk|cv|resume)\b/.test(text)) {
-      return `You can reach me directly via email at **${CONFIG.profile.email}** or connect with me on [LinkedIn](${CONFIG.profile.linkedin}).
+    // Intent: Support / Contact
+    if (/\b(contact|support|sales|demo|inquiry|hire|email|linkedin|reach|message|phone)\b/.test(text)) {
+      const links = [];
+      const isEmailOff = CONFIG.features && CONFIG.features.blockEmail;
+      const isLIOff = CONFIG.features && CONFIG.features.blockLinkedIn;
+      const isGHOff = CONFIG.features && CONFIG.features.blockGitHub;
+      
+      if (!isEmailOff) links.push(`email at **${CONFIG.profile.email}**`);
+      if (!isLIOff) links.push(`[LinkedIn](${CONFIG.profile.linkedin})`);
+      if (!isGHOff) links.push(`[GitHub](${CONFIG.profile.github})`);
+      
+      const notes = [];
+      if (isEmailOff) notes.push("Email inbox is temporarily offline.");
+      if (isLIOff) notes.push("LinkedIn is offline for updates.");
+      if (isGHOff) notes.push("GitHub is offline for structural updates.");
 
-You can also download my CV / Resume or send me a message through the **Contact** form on this page!`;
-    }
-
-    // Intent: Education
-    if (/\b(education|college|degree|bachelor|university|mar ephraem|gpa|cgpa|studies)\b/.test(text)) {
-      const edu = CONFIG.education[0];
-      return `I hold a **${edu.degree}** from **${edu.institution}** (CGPA: 7.82, Graduated April 2022). I transitioned into backend development shortly after graduation, focusing on Python, Web3, and generative AI.`;
+      // Fallback if all 3 direct channels are blocked
+      if (links.length === 0) {
+        return `All direct messaging channels (Email, LinkedIn, GitHub) are currently offline for maintenance. Please send a message directly using the **Contact Form** at the bottom of this page!`;
+      }
+      
+      let listText = links.join(', ');
+      const lastComma = listText.lastIndexOf(', ');
+      if (lastComma !== -1) {
+        listText = listText.substring(0, lastComma) + ' or ' + listText.substring(lastComma + 2);
+      }
+      
+      const notesText = notes.length > 0 ? `\n\n*(Note: ${notes.join(' ')} Please feel free to use the contact form on this page to send a message!)*` : '\n\nAlternatively, submit a message directly via the contact form on this page!';
+      
+      return `You can reach Sanju Antony directly via ${listText}.${notesText}`;
     }
 
     // Intent: Help
     if (/\b(help|commands|what can you do|suggest|menu)\b/.test(text)) {
-      return `You can ask me questions about my profile using natural query commands. Try typing:
-• *"What skills do you have?"*
+      return `You can ask me questions about Sanju Antony using natural questions:
+• *"What skills/languages do you use?"*
 • *"Tell me about your work experience"*
-• *"Show me your projects"*
-• *"What is MCP?"*
-• *"How can I contact you?"*`;
+• *"What projects have you built?"*
+• *"How can I get in touch with you?"*`;
     }
 
     // Fallback
-    return `I'm not fully sure how to answer that from my local portfolio database. Try asking about my **skills**, **experience**, **projects**, or **MCP servers**, or contact me directly at **${CONFIG.profile.email}**!`;
+    return `I'm not fully sure how to answer that from Sanju's portfolio details. Try asking about **skills**, **experience**, **projects**, or contact him directly at **${CONFIG.profile.email}**!`;
   }
 
   // ------------------------------------------------------------- submit message

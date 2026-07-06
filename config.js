@@ -5,6 +5,17 @@
 // =========================================================================
 
 const CONFIG = {
+  // Floating background data packet terms (seen floating up in the scrollytelling scene)
+  backgroundPackets: [
+    'data', 'exec', 'mcp', 'tx:hash', 'call_llm()', 
+    'solidity:mint', 'GET /api', '200 OK', 'block:44', 
+    'docker:run', 'FastAPI', 'Node.js', 'ChromaDB', 'AWS:S3'
+  ],
+  // Terminal prompt customization (username@hostname:~$)
+  terminalPrompt: {
+    username: 'visitor',
+    hostname: "sanju's_portfolio"
+  },
   profile: {
     name: "Sanju Antony",
     title: "Backend & AI Engineer",
@@ -91,7 +102,7 @@ const CONFIG = {
       highlights: [
         "Currently leading research and development initiatives on Anthropic services and features, exploring and integrating advanced AI capabilities.",
         "Architected and developed custom Model Context Protocol (MCP) servers and clients to provide structured, consent-based context for AI interactions, enhancing LLM accuracy and safety.",
-        "Led research and development for a 'Real Estate Tokenization' platform, designing secure architectures and implementing token standard best practices.",
+        "Led research and development for a decentralized asset tokenization platform, designing secure architectures and implementing token standard best practices.",
         "Developed and audited Solidity smart contracts on the Ethereum network and L2 solutions, including ERC-20, ERC-721, and multisig wallet contracts.",
         "Conducted in-depth analysis of AI tooling, model optimizations, and workflows to inform strategic application development decisions.",
         "Utilized Hardhat, Ethers.js, and MetaMask to test, audit, and deploy smart contracts across testnets and mainnets."
@@ -115,7 +126,7 @@ const CONFIG = {
   // Project portfolio cards with tags, description, and live URLs
   projects: [
     {
-      title: "Ionixx GPT",
+      title: "Model Context Protocol & Custom AI Chatbot Server",
       description: "An AI Chatbot built on Anthropic's Large Language Models. Features a custom Model Context Protocol (MCP) server that feeds consent-based context, code execution environments, web search, and stream messaging.",
       category: "AI & Machine Learning",
       tags: ["LLMs", "Anthropic", "MCP Server", "Node.js", "Web Search"],
@@ -129,7 +140,7 @@ const CONFIG = {
       ]
     },
     {
-      title: "Real Estate Tokenization",
+      title: "Decentralized Asset Tokenization Platform",
       description: "A blockchain-based asset tokenization platform. Deploys custom Solidity smart contracts (ERC-20, ERC-721) on Ethereum and L2 networks to represent real estate assets, with multisig wallets for enhanced security.",
       category: "Blockchain & Web3",
       tags: ["Solidity", "Hardhat", "MetaMask", "ERC-20", "ERC-721"],
@@ -143,7 +154,7 @@ const CONFIG = {
       ]
     },
     {
-      title: "Personal Financial Dashboard",
+      title: "Consent-Based Financial Data Aggregator",
       description: "A confidential dashboard application providing consent-based asset and liability tracking. Integrates Plaid API for USA financial data and is researched against Sahamati RBI guidelines for India's Account Aggregator network.",
       category: "Backend & Cloud",
       tags: ["Plaid API", "Sahamati AA", "Node.js", "Fintech"],
@@ -157,7 +168,7 @@ const CONFIG = {
       ]
     },
     {
-      title: "Mifos API Migration",
+      title: "Heterogeneous REST API & Microservice Migration",
       description: "Led the performance-critical migration of assigned Java 1.6 Spring Boot microservice APIs to Python Django MVC architectures, ensuring backward compatibility and improved latency.",
       category: "Backend & Cloud",
       tags: ["Django", "Python", "Java 1.6", "Spring Boot"],
@@ -180,7 +191,41 @@ const CONFIG = {
       duration: "June 2018 - April 2022",
       description: "CGPA: 7.82"
     }
-  ]
+  ],
+
+  // Feature Flags
+  features: {
+    blockResume: true,
+    blockGitHub: true,
+    blockLinkedIn: true,
+    blockInstagram: true,
+    blockContactForm: true
+  },
+
+  // Tech Blog & Publications Dropdown Links
+  blog: {
+    title: "Tech Publications",
+    links: [
+      {
+        title: "🎓 Simplified Learning Guides",
+        description: "My way of sharing tech concepts simply, designed for engineers switching to CS.",
+        hasSubmenu: true,
+        submenu: [
+          { title: "🐍 Python from Scratch", url: "blog/python-scratch/index.html", description: "A step-by-step programming intro for non-CS engineers." }
+        ]
+      },
+      {
+        title: "📰 Articles & Tech News",
+        url: "blog/articles-news/index.html",
+        description: "Weekly shared posts, insights on new tech, and hot industry news."
+      },
+      {
+        title: "🎮 Side Quests & Fun Projects",
+        url: "blog/fun-projects/index.html",
+        description: "Experimental side projects, games, and creative code."
+      }
+    ]
+  }
 };
 
 // Export config for ES Modules if imported, or bind to window for standard script tag usage
