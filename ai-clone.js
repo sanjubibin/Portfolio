@@ -2,7 +2,6 @@
   'use strict';
 
   const CONFIG = window.CONFIG;
-  const HAS_GSAP = !!(window.gsap && window.ScrollToPlugin);
 
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
@@ -83,7 +82,7 @@
         opacity: 1,
         pointerEvents: 'all',
         duration: 0.45,
-        closeBtn: 'power3.out',
+        ease: 'power3.out',
         onComplete: () => {
           gsap.fromTo(chatContainer.children,
             { opacity: 0, y: 12 },

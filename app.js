@@ -44,8 +44,9 @@
     name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase();
 
   function renderHero() {
-    $('#hero-eyebrow').textContent = CONFIG.profile.title;
-    $('#hero-title').textContent = CONFIG.profile.name;
+    const badge = $('#hero-badge');
+    if (badge) badge.textContent = CONFIG.profile.name;
+    $('#hero-title').textContent = CONFIG.profile.title;
     const sub = $('#hero-sub');
     const rot = CONFIG.profile.subTitleRotate;
     if (HAS_GSAP && !REDUCED && rot && rot.prefix && Array.isArray(rot.words) && rot.words.length > 1) {
@@ -107,25 +108,7 @@
     $('#about-bio').textContent = CONFIG.profile.about;
   }
 
-  const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
-    'july', 'august', 'september', 'october', 'november', 'december'];
 
-  // Earliest start date across experience entries → whole years since then.
-  function computeYears() {
-    let earliest = null;
-    for (const job of CONFIG.experience || []) {
-      const m = String(job.duration || '').match(/(\d{4})\s*([A-Za-z]+)?/);
-      if (!m) continue;
-      const month = m[2] ? Math.max(0, MONTHS.indexOf(m[2].toLowerCase())) : 0;
-      const d = new Date(+m[1], month, 1);
-      if (!earliest || d < earliest) earliest = d;
-    }
-    if (!earliest) return (CONFIG.experience || []).length;
-    const now = new Date();
-    let years = now.getFullYear() - earliest.getFullYear();
-    if (now.getMonth() < earliest.getMonth()) years -= 1;
-    return Math.max(1, years);
-  }
 
   function renderStats() {
     const stats = [
@@ -219,7 +202,7 @@
   function renderSocials() {
     const html = (CONFIG.socialLinks || []).map((link) => {
       const icon = ICONS[(link.icon || '').toLowerCase()] || ICONS.mail;
-      const external = /^https?:/i.test(link.url);
+      const external = /^(https?:|mailto:)/i.test(link.url);
       return `<a class="social" href="${esc(link.url)}"${external ? ' target="_blank" rel="noopener"' : ''} aria-label="${esc(link.name)}" data-gel data-magnet>${icon}</a>`;
     }).join('');
     $('#social-links').innerHTML = html;
@@ -229,7 +212,7 @@
   function renderContactMeta() {
     const items = [];
     if (CONFIG.profile.email) {
-      items.push(`<li>${ICONS.mail}<a href="mailto:${esc(CONFIG.profile.email)}">${esc(CONFIG.profile.email)}</a></li>`);
+      items.push(`<li>${ICONS.mail}<a href="mailto:${esc(CONFIG.profile.email)}" target="_blank" rel="noopener">${esc(CONFIG.profile.email)}</a></li>`);
     }
     if (CONFIG.profile.location) {
       items.push(`<li>${ICONS.location}<span>${esc(CONFIG.profile.location)}</span></li>`);
@@ -246,18 +229,118 @@
       `© ${new Date().getFullYear()} ${CONFIG.profile.name}`;
   }
 
+  function renderBlogDropdown() {
+    const dropdown = $('#blog-dropdown');
+    if (!dropdown || !CONFIG.blog || !Array.isArray(CONFIG.blog.links)) return;
+
+    const html = `
+      <div class="nav__dropdown-header">${esc(CONFIG.blog.title || 'Tech Publications')}</div>
+      <div class="nav__dropdown-items">
+        ${CONFIG.blog.links.map(l => {
+          if (l.hasSubmenu) {
+            return `
+              <div class="nav__dropdown-group">
+                <button type="button" class="nav__dropdown-trigger" aria-expanded="false">
+                  <span class="nav__dropdown-title">${esc(l.title)}</span>
+                  <span class="nav__dropdown-desc">${esc(l.description)}</span>
+                </button>
+                <div class="nav__dropdown-submenu">
+                  ${(l.submenu || []).map(sub => `
+                    <a class="nav__dropdown-subitem" href="${esc(sub.url)}" target="_blank" rel="noopener">
+                      <span class="nav__dropdown-title">${esc(sub.title)}</span>
+                      <span class="nav__dropdown-desc">${esc(sub.description)}</span>
+                    </a>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          } else {
+            return `
+              <a class="nav__dropdown-item" href="${esc(l.url)}" target="_blank" rel="noopener">
+                <span class="nav__dropdown-title">${esc(l.title)}</span>
+                <span class="nav__dropdown-desc">${esc(l.description)}</span>
+              </a>
+            `;
+          }
+        }).join('')}
+      </div>
+    `;
+    dropdown.innerHTML = html;
+  }
+
   // =============================================================== NAV
+  function scrollToTarget(target, immediate = false) {
+    if (HAS_GSAP && !REDUCED) {
+      gsap.to(window, {
+        scrollTo: { y: target, offsetY: 88 },
+        duration: immediate ? 0 : 0.9,
+        ease: 'power3.inOut',
+        overwrite: 'auto'
+      });
+    } else {
+      target.scrollIntoView({ behavior: (REDUCED || immediate) ? 'auto' : 'smooth', block: 'start' });
+    }
+  }
+
   function initNav() {
+    // Disable automatic browser scroll restoration on refresh/navigate
+    if (history.scrollRestoration) {
+      history.scrollRestoration = 'manual';
+    }
+
+    // Track last user scroll position to undo browser's default instant jump on popstate
+    let lastScrollY = window.scrollY;
+    window.addEventListener('scroll', () => {
+      // Don't update tracking coordinate while GSAP is scrolling
+      if (HAS_GSAP && !REDUCED && gsap.isTweening(window)) return;
+      lastScrollY = window.scrollY;
+    }, { passive: true });
+
+    // Click events on navigation anchors
     document.addEventListener('click', (e) => {
       const a = e.target.closest('a[href^="#"]');
-      if (!a) return;
-      const target = document.querySelector(a.getAttribute('href'));
-      if (!target) return;
-      e.preventDefault();
-      if (HAS_GSAP && !REDUCED) {
-        gsap.to(window, { scrollTo: { y: target, offsetY: 88 }, duration: 1.1, ease: 'power4.inOut' });
+      if (a) {
+        const hash = a.getAttribute('href');
+        const target = document.querySelector(hash);
+        if (target) {
+          e.preventDefault();
+
+          // Update URL hash without causing a page jump
+          if (history.pushState) {
+            history.pushState(null, null, hash);
+          } else {
+            window.location.hash = hash;
+          }
+
+          scrollToTarget(target);
+        }
+      }
+    });
+
+    // Clear hash and force scroll to top on load/reload
+    if (window.location.hash) {
+      if (history.replaceState) {
+        history.replaceState(null, null, window.location.pathname + window.location.search);
       } else {
-        target.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
+        window.location.hash = '';
+      }
+    }
+    window.scrollTo(0, 0);
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        window.scrollTo(0, 0);
+      }, 0);
+    }, { once: true });
+
+    // Handle browser Back/Forward navigation smoothly
+    window.addEventListener('popstate', () => {
+      const hash = window.location.hash || '#hero';
+      const target = document.querySelector(hash);
+      if (target) {
+        // Instantly restore previous position to undo default browser jump
+        window.scrollTo(0, lastScrollY);
+        // Smoothly animate to the new target
+        scrollToTarget(target);
       }
     });
   }
@@ -270,15 +353,86 @@
         end: 'bottom center',
         onToggle: (self) => {
           if (!self.isActive) return;
+          let anyActive = false;
           $$('.nav__links a').forEach((a) => {
             const active = a.getAttribute('href') === '#' + sec.id;
             a.classList.toggle('is-active', active);
             if (active) {
+              anyActive = true;
               updateNavIndicator(a);
             }
           });
+          // Hide the nav indicator if we are in a section with no matching nav link (e.g. Hero)
+          if (!anyActive) {
+            updateNavIndicator(null);
+          }
         }
       });
+    });
+  }
+
+  function initBlogDropdown() {
+    const btn = $('#blog-nav-btn');
+    const dropdown = $('#blog-dropdown');
+    if (!btn || !dropdown) return;
+
+    const toggleDropdown = (open) => {
+      const show = open !== undefined ? open : !dropdown.classList.contains('is-open');
+      dropdown.classList.toggle('is-open', show);
+      dropdown.setAttribute('aria-hidden', String(!show));
+
+      // Close all submenus when closing the main dropdown
+      if (!show) {
+        $$('.nav__dropdown-group').forEach(group => {
+          group.classList.remove('is-open');
+          const trigger = group.querySelector('.nav__dropdown-trigger');
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+      }
+    };
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDropdown();
+    });
+
+    // Submenu click toggles
+    dropdown.addEventListener('click', (e) => {
+      const trigger = e.target.closest('.nav__dropdown-trigger');
+      if (trigger) {
+        e.stopPropagation();
+        
+        // Intercept "Simplified Learning Guides" to launch guides drawer
+        const titleSpan = trigger.querySelector('.nav__dropdown-title');
+        if (titleSpan && titleSpan.textContent.includes('Simplified Learning Guides')) {
+          toggleDropdown(false);
+          if (typeof window.openGuidesDrawer === 'function') {
+            window.openGuidesDrawer();
+          }
+          return;
+        }
+
+        const group = trigger.closest('.nav__dropdown-group');
+        if (group) {
+          const isOpen = group.classList.contains('is-open');
+          group.classList.toggle('is-open', !isOpen);
+          trigger.setAttribute('aria-expanded', String(!isOpen));
+        }
+      }
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#blog-nav-wrapper')) {
+        toggleDropdown(false);
+      }
+    });
+
+    // Close on Escape key
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        toggleDropdown(false);
+      }
     });
   }
 
@@ -291,8 +445,30 @@
     const status = $('#form-status');
     const btn = $('#cf-submit');
 
+    // Intercept click/focus on inputs if form is blocked
+    const inputs = $$('.form-control', form);
+    inputs.forEach((input) => {
+      const handleBlockedInput = (e) => {
+        if (CONFIG.features && CONFIG.features.blockContactForm) {
+          e.preventDefault();
+          input.blur();
+          if (typeof window.showStatusWarning === 'function') {
+            window.showStatusWarning('contact');
+          }
+        }
+      };
+      input.addEventListener('focus', handleBlockedInput);
+      input.addEventListener('click', handleBlockedInput);
+    });
+
     form.addEventListener('submit', (e) => {
       e.preventDefault();
+      if (CONFIG.features && CONFIG.features.blockContactForm) {
+        if (typeof window.showStatusWarning === 'function') {
+          window.showStatusWarning('contact');
+        }
+        return;
+      }
       const name = $('#cf-name').value.trim();
       const email = $('#cf-email').value.trim();
       const subject = $('#cf-subject').value.trim();
@@ -481,12 +657,12 @@
   function initScrollFX() {
     // Hero intro. clearProps at the end so the CSS orb-crossfade rule
     // ([data-orb="on"] .hero__title { opacity: 0 }) can take effect.
-    const introSel = '.hero__eyebrow, .hero__title, .hero__sub, .hero__cta .btn';
+    const introSel = '.hero__badge, .hero__title, .hero__sub, .hero__cta .btn';
     const tl = gsap.timeline({
       delay: 0.15,
       onComplete: () => gsap.set(introSel, { clearProps: 'all' })
     });
-    tl.from('.hero__eyebrow', { y: 26, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
+    tl.from('.hero__badge', { y: 26, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
       .from('.hero__title', { y: 34, autoAlpha: 0, duration: 1, ease: 'power3.out' }, '-=0.62')
       .from('.hero__sub', { y: 24, autoAlpha: 0, duration: 0.9, ease: 'power3.out' }, '-=0.7')
       .from('.hero__cta .btn', { y: 20, autoAlpha: 0, duration: 0.8, stagger: 0.09, ease: 'power3.out' }, '-=0.62');
@@ -767,8 +943,8 @@
         `;
       }
 
-      // Special Interactive Playground: Ionixx GPT (MCP Client Tools)
-      if (p.title === "Ionixx GPT") {
+      // Special Interactive Playground: Model Context Protocol & Custom AI Chatbot Server
+      if (p.title === "Model Context Protocol & Custom AI Chatbot Server") {
         bodyHtml += `
           <div class="drawer-section" style="margin-top: 1rem;">
             <h4>Interactive MCP Playground</h4>
@@ -799,8 +975,8 @@
         `;
       }
 
-      // Special Interactive Playground: Real Estate Tokenization (MetaMask DApp Sandbox)
-      if (p.title === "Real Estate Tokenization") {
+      // Special Interactive Playground: Decentralized Asset Tokenization Platform (MetaMask DApp Sandbox)
+      if (p.title === "Decentralized Asset Tokenization Platform") {
         bodyHtml += `
           <div class="drawer-section" style="margin-top: 1rem;">
             <h4>Simulated DApp Sandbox</h4>
@@ -823,8 +999,8 @@
       overlay.setAttribute('aria-hidden', 'false');
       
       // Wire up special play handlers if injected
-      if (p.title === "Ionixx GPT") initMCPPlayground();
-      if (p.title === "Real Estate Tokenization") initDAppSandbox();
+      if (p.title === "Model Context Protocol & Custom AI Chatbot Server") initMCPPlayground();
+      if (p.title === "Decentralized Asset Tokenization Platform") initDAppSandbox();
     }
 
     function closeDrawer() {
@@ -854,6 +1030,558 @@
         closeDrawer();
       }
     });
+  }
+
+  // ------------------------------------------------------------- guides drawer & reader
+  function initGuidesDrawer() {
+    const drawer = $('#guides-drawer');
+    const overlay = $('#guides-drawer-overlay');
+    const closeBtn = $('#guides-drawer-close');
+    const slider = $('#guides-drawer-slider');
+    
+    const btnBackend = $('#guides-btn-backend');
+    const btnBackL2 = $('#guides-back-l2-btn');
+    const btnPython = $('#guides-btn-python');
+
+    if (!drawer || !overlay || !closeBtn || !slider) return;
+
+    function openGuidesDrawer() {
+      drawer.classList.add('is-open');
+      overlay.classList.add('is-open');
+      drawer.setAttribute('aria-hidden', 'false');
+      overlay.setAttribute('aria-hidden', 'false');
+      
+      // Reset to Level 1
+      slider.style.transform = 'translateX(0)';
+      document.body.style.overflow = 'hidden'; // Lock background scroll
+    }
+
+    function closeGuidesDrawer() {
+      drawer.classList.remove('is-open');
+      overlay.classList.remove('is-open');
+      drawer.setAttribute('aria-hidden', 'true');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = ''; // Restore background scroll
+    }
+
+    // Expose openGuidesDrawer globally so it can be called from blog dropdown click
+    window.openGuidesDrawer = openGuidesDrawer;
+
+    closeBtn.addEventListener('click', closeGuidesDrawer);
+    overlay.addEventListener('click', closeGuidesDrawer);
+
+    // Escape Key closes guides drawer
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && drawer.classList.contains('is-open')) {
+        closeGuidesDrawer();
+      }
+    });
+
+    // Level 1 -> Level 2 navigation
+    if (btnBackend) {
+      btnBackend.addEventListener('click', () => {
+        slider.style.transform = 'translateX(-50%)';
+      });
+    }
+
+    // Level 2 -> Level 1 navigation
+    if (btnBackL2) {
+      btnBackL2.addEventListener('click', () => {
+        slider.style.transform = 'translateX(0)';
+      });
+    }
+
+    // Launch Python from Scratch Reader
+    if (btnPython) {
+      btnPython.addEventListener('click', () => {
+        closeGuidesDrawer();
+        openPythonReader();
+      });
+    }
+  }
+
+  // Interactive Python learning chapters database
+  const PYTHON_CHAPTERS = [
+    {
+      title: "1. Syntax & Indentation",
+      subtitle: "Aligning the System",
+      category: "Syntax & Indentation",
+      content: `
+        <p>In most programming languages, curly brackets <code>{}</code> are used to group blocks of code. Python does not use brackets; instead, it relies entirely on <strong>whitespace indentation</strong> (usually 4 spaces) to define execution hierarchy.</p>
+        <h2>The Alignment Analogy</h2>
+        <p>Think of indentation in Python like aligning keyways on a rotational shaft. If a keyway is misaligned by even half a millimeter, the assembly binds, and the machine crashes. Similarly, if your indentation is off in Python, the interpreter raises an <code>IndentationError</code> and halts execution.</p>
+        <pre># CORRECT: The block sits inside the check
+if pressure > 100:
+    print("Release relief valve!") # Indented 4 spaces
+
+# INCORRECT: This raises an IndentationError!
+if pressure > 100:
+print("Release relief valve!") # No indentation!</pre>
+        <p>Indentations tell Python which lines belong to a specific conditional branch, loop cycle, or functional block. Maintain correct alignment to keep your software engine running smoothly!</p>
+      `
+    },
+    {
+      title: "2. Variables & Casting",
+      subtitle: "Data Storage Tanks & Converters",
+      category: "Variables & Casting",
+      content: `
+        <p>Variables in Python are created dynamically when you assign a value to them using the assignment operator <code>=</code>. Unlike statically typed languages, you do not need to pre-declare their data capacity.</p>
+        <h2>The Storage Tank Analogy</h2>
+        <p>Think of a variable as a <strong>storage tank</strong>. By typing <code>pressure = 120</code>, you create a tank named <code>pressure</code> and fill it with the value <code>120</code>. You can change this fluid at any point in the cycle: <code>pressure = "Decompressed"</code>.</p>
+        <h2>Data Casting (Modifying Flow Types)</h2>
+        <p>Sometimes you need to convert data from one state to another (casting). This is like running a fluid through a converter valve:
+        <ul>
+          <li><code>int(x)</code> - Converts a value to a solid whole number.</li>
+          <li><code>float(x)</code> - Converts a value to a precise decimal measurement.</li>
+          <li><code>str(x)</code> - Converts a value to text format.</li>
+        </ul>
+        </p>
+        <pre>temp_sensor = "98.6" # Text string
+numeric_temp = float(temp_sensor) # Casts to 98.6 (decimal float)</pre>
+        <h2>Variable Scope (Local vs. Global)</h2>
+        <p>Variables declared inside a function are <strong>local</strong> (only accessible within that local subsystem). Variables declared in the main script are <strong>global</strong> (accessible by any subsystem across the main application). Use the <code>global</code> keyword to modify a global variable from inside a local subsystem.</p>
+      `
+    },
+    {
+      title: "3. Data Types & Booleans",
+      subtitle: "Materials & Binary Switches",
+      category: "Data Types & Booleans",
+      content: `
+        <p>Every variable holds a specific data type. Understanding your data types is like selecting the correct engineering materials for a mechanical structure.</p>
+        <h2>Core Python Materials</h2>
+        <ul>
+          <li><strong>Int / Float (Integers / Decimals):</strong> Used for dimensions, sensor readings, and math operations.</li>
+          <li><strong>Str (Strings / Text):</strong> Text characters wrapped in quotes, used for log messages or serial commands.</li>
+          <li><strong>Bool (Booleans / Binary Switches):</strong> Holds either <code>True</code> or <code>False</code>.</li>
+        </ul>
+        <h2>The Boolean Analogy</h2>
+        <p>Booleans are simple binary toggles. Think of them like a limit switch on a linear actuator: either the actuator has hit the limit switch (<code>True</code>) or it hasn't (<code>False</code>). There is no middle ground.</p>
+        <pre>actuator_active = True
+safety_tripped = False</pre>
+        <h2>String Slicing & Formatting</h2>
+        <p>You can extract segments of a text string (slicing) using index ranges <code>[start:end]</code>, or format strings dynamically using f-strings (prefixed with <code>f</code>) to inject variables directly into messages:</p>
+        <pre>serial_code = "ERR_OVERTEMP_95C"
+err_type = serial_code[0:3] # Extracts "ERR"
+curr_temp = 98.2
+status_log = f"System Report: {curr_temp}°C" # Injects curr_temp</pre>
+      `
+    },
+    {
+      title: "4. Operators & Logical Gears",
+      subtitle: "Mathematical & Relational Interactions",
+      category: "Operators",
+      content: `
+        <p>Operators are the symbols used to perform calculations, comparison gates, and logical routing checks in your system.</p>
+        <h2>Mathematical Operators (Gears & Accelerators)</h2>
+        <p>Standard math operators perform calculations on variables:
+        <ul>
+          <li><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> - Addition, subtraction, multiplication, division.</li>
+          <li><code>%</code> (Modulus) - Returns the remainder of division (useful for repeating cycles).</li>
+          <li><code>**</code> (Exponentiation) - Raises a number to a power.</li>
+        </ul>
+        </p>
+        <h2>Comparison Gates (Check Valves)</h2>
+        <p>Comparison operators return a Boolean (<code>True</code> or <code>False</code>) by comparing values:
+        <ul>
+          <li><code>==</code> (Equal to), <code>!=</code> (Not equal to)</li>
+          <li><code>></code> (Greater than), <code><</code> (Less than)</li>
+          <li><code>>=</code>, <code><=</code> (Greater than or equal to, Less than or equal to)</li>
+        </ul>
+        </p>
+        <h2>Logical Operators (Compound Valves)</h2>
+        <p>Combine multiple checks to route logic flows:
+        <ul>
+          <li><code>and</code> - Returns <code>True</code> if both pathways are active.</li>
+          <li><code>or</code> - Returns <code>True</code> if at least one pathway is active.</li>
+          <li><code>not</code> - Reverses the input signal (inverts <code>True</code> to <code>False</code>).</li>
+        </ul>
+        <pre># True only if temperature is safe AND pressure is stable
+system_safe = (temp < 100) and (pressure <= 120)</pre>
+      `
+    },
+    {
+      title: "5. Lists & Collections",
+      subtitle: "Conveyor Belts & Catalog Indexes",
+      category: "Collections",
+      content: `
+        <p>Python offers four built-in collection types to store lists of variables in a single database. Selecting the correct collection is like choosing the appropriate material handling system.</p>
+        <h2>The Four Collection Mechanisms</h2>
+        <ul>
+          <li><strong>List (Conveyor Belt):</strong> Ordered, changeable, and indexable. It can hold duplicates. You can append, remove, or sort items on the fly.</li>
+          <li><strong>Tuple (Fixed Bracket):</strong> Ordered but immutable (cannot be altered after creation). Useful for coordinate sets or fixed configuration constants.</li>
+          <li><strong>Set (Sorting Bin):</strong> Unordered and unindexed. No duplicate entries allowed. Perfect for filtering out duplicate serial codes.</li>
+          <li><strong>Dictionary (Part Catalog):</strong> Unordered, changeable, and indexed using key-value pairs. You look up a specific item using its unique label instead of an index number.</li>
+        </ul>
+        <h2>The Dictionary Analogy</h2>
+        <p>Think of a Dictionary like a parts catalog drawer. Instead of searching by shelf number (index), you search by the part name (key) to get its specifications (value).</p>
+        <pre># Creating a dictionary of parts
+part_catalog = {
+    "sku_120": "Rotary Gear 40mm",
+    "sku_155": "Stainless Steel Bolt",
+    "sku_210": "Hydraulic Seal"
+}
+
+# Accessing a value by its key
+selected_part = part_catalog["sku_155"] # Returns "Stainless Steel Bolt"</pre>
+      `
+    },
+    {
+      title: "6. Conditionals (If...Else)",
+      subtitle: "Directional Routing Valves",
+      category: "Conditionals",
+      content: `
+        <p>Conditional statements allow your software system to make choices and branch its execution pathway based on logical gates.</p>
+        <h2>The Fluid Gate Analogy</h2>
+        <p>Think of conditional statements like a fluid distribution manifold with safety valves. If pressure exceeds the threshold, the manifold closes flow-gate A and routes the fluid down safety pathway B. If not, it executes path C.</p>
+        <pre>pressure = 115
+
+if pressure > 120:
+    print("ALERT: Safety valve tripped!")
+elif pressure > 100:
+    print("WARNING: Pressure is rising, monitor closely.")
+else:
+    print("Report: System pressures stable.")</pre>
+        <h2>Logical Shorthand</h2>
+        <p>For simple routing decisions, you can use Python's ternary shorthand to keep code compact:
+        <pre>status = "Alert" if pressure > 120 else "Normal"</pre>
+        </p>
+      `
+    },
+    {
+      title: "7. Loops (While & For)",
+      subtitle: "Rotational Cycles & RPMs",
+      category: "Loops",
+      content: `
+        <p>Loops instruct the computer to execute a block of code repeatedly. Managing loops is like configuring the RPM cycle of an engine.</p>
+        <h2>While Loops (Continuous Operation)</h2>
+        <p>A <code>while</code> loop runs indefinitely as long as a conditional check remains <code>True</code>. If you forget to modify the checking condition, you trigger an infinite loop, causing your program engine to lock up!</p>
+        <pre>rpm = 0
+while rpm < 3000:
+    rpm += 500 # Accelerates cycle
+    print(f"RPM speed: {rpm}")</pre>
+        <h2>For Loops (Iterating Conveyor Belts)</h2>
+        <p>A <code>for</code> loop iterates over a collection (like a list, tuple, or dictionary) or a range of numbers. It is used to run a specific action on every item on a conveyor belt in sequence.</p>
+        <pre>critical_valves = ["valve_A", "valve_B", "valve_C"]
+for valve in critical_valves:
+    print(f"Auditing actuator status for: {valve}")</pre>
+        <h2>Interrupt Commands (Break & Continue)</h2>
+        <ul>
+          <li><code>break</code> - Instantly terminates the loop cycle and exits.</li>
+          <li><code>continue</code> - Skips the current iteration and jumps directly to the start of the next cycle.</li>
+        </ul>
+      `
+    },
+    {
+      title: "8. Functions & OOP Classes",
+      subtitle: "Modular Assemblies & Blueprint Blueprints",
+      category: "Functions & OOP",
+      content: `
+        <p>As applications scale, writing unstructured scripts becomes unmanageable. Functions and Object-Oriented Programming (OOP) allow you to modularize your code into reusable subsystems and structural blueprints.</p>
+        <h2>Functions (Subsystems / Valves)</h2>
+        <p>A function is a block of code which only runs when it is called. You can pass inputs (arguments <code>*args</code> or keyword arguments <code>**kwargs</code>) and return outputs.</p>
+        <pre>def calculate_torque(force, radius=0.2):
+    return force * radius # Torque = F * r</pre>
+        <h2>Classes & OOP (Engine Blueprints)</h2>
+        <p>A Class is an extensible program code template for creating objects, providing initial values for state (properties) and implementations of behavior (methods).</p>
+        <h2>The Blueprint Analogy</h2>
+        <p>Think of a **Class** like a mechanical blueprint of an engine. The blueprint itself is not a machine—it is just the documentation of dimensions and actions. 
+        When you construct a physical engine from that blueprint, you are creating an **Object** (instantiation). You can build multiple independent engines (objects) from the same blueprint (class).</p>
+        <pre># The Blueprint (Class)
+class Engine:
+    def __init__(self, cylinders, horse_power):
+        self.cylinders = cylinders # Property
+        self.horse_power = horse_power # Property
+        self.active = False # Property
+
+    def start_ignition(self): # Method (Action)
+        self.active = True
+        return "Vroom! System active."
+
+# Creating objects (instantiation)
+engine_A = Engine(4, 150)
+engine_B = Engine(8, 450)
+
+# Running methods on objects
+print(engine_A.start_ignition()) # Returns "Vroom! System active."
+print(engine_A.active) # Returns True
+print(engine_B.active) # Returns False (independent instances!)</pre>
+      `
+    }
+  ];
+
+  function openPythonReader() {
+    const reader = $('#learning-reader');
+    const closeBtn = $('#reader-close-btn');
+    const themeBtn = $('#reader-theme-btn');
+    const tocList = $('#reader-toc-list');
+    const contentArea = $('#reader-chapter-content');
+    const prevBtn = $('#reader-prev-btn');
+    const nextBtn = $('#reader-next-btn');
+    const progressInfo = $('#reader-progress-info');
+    const headerChapter = $('#reader-header-chapter');
+
+    if (!reader || !closeBtn || !tocList || !contentArea) return;
+
+    let activeChapter = 0;
+    
+    // Read active chapter from storage
+    const savedChapter = localStorage.getItem('python-active-chapter');
+    if (savedChapter !== null) {
+      const idx = parseInt(savedChapter, 10);
+      if (idx >= 0 && idx < PYTHON_CHAPTERS.length) {
+        activeChapter = idx;
+      }
+    }
+
+    // Theme Switcher Initialization
+    const savedTheme = localStorage.getItem('reader-theme') || 'dark';
+    reader.classList.toggle('reader-light-theme', savedTheme === 'light');
+
+    // Show Reader
+    reader.classList.add('is-active');
+    reader.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden'; // Lock background scroll
+
+    // Load WebAssembly Pyodide runtime helpers
+    let pyodideInstance = null;
+    let pyodidePromise = null;
+
+    async function getPyodide() {
+      if (pyodideInstance) return pyodideInstance;
+      if (pyodidePromise) return pyodidePromise;
+
+      pyodidePromise = new Promise((resolve, reject) => {
+        if (window.loadPyodide) {
+          loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/" })
+            .then(py => { pyodideInstance = py; resolve(py); })
+            .catch(err => { pyodidePromise = null; reject(err); });
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js";
+        script.onload = async () => {
+          try {
+            const py = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/" });
+            pyodideInstance = py;
+            resolve(py);
+          } catch (err) {
+            pyodidePromise = null;
+            reject(err);
+          }
+        };
+        script.onerror = (err) => {
+          pyodidePromise = null;
+          reject(err);
+        };
+        document.head.appendChild(script);
+      });
+
+      return pyodidePromise;
+    }
+
+    async function executePython(code, outputEl, buttonEl) {
+      const originalText = buttonEl.textContent;
+      buttonEl.disabled = true;
+      buttonEl.textContent = "Running...";
+      outputEl.textContent = "Running...";
+      outputEl.classList.remove('err');
+
+      try {
+        const py = await getPyodide();
+
+        // Set up output redirect
+        py.runPython(`
+          import sys
+          import io
+          sys.stdout = io.StringIO()
+          sys.stderr = io.StringIO()
+        `);
+
+        // Execute code
+        await py.runPythonAsync(code);
+
+        const stdout = py.runPython("sys.stdout.getvalue()");
+        const stderr = py.runPython("sys.stderr.getvalue()");
+
+        if (stderr) {
+          outputEl.textContent = stderr;
+          outputEl.classList.add('err');
+        } else {
+          outputEl.textContent = stdout || "Executed successfully (no output).";
+        }
+      } catch (err) {
+        let errMsg = "";
+        try {
+          if (pyodideInstance) {
+            const capturedStderr = pyodideInstance.runPython("sys.stderr.getvalue()");
+            if (capturedStderr && capturedStderr.trim()) {
+              errMsg = capturedStderr;
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+        if (!errMsg) {
+          errMsg = (err && (err.message || err.description)) || String(err);
+        }
+        outputEl.textContent = errMsg;
+        outputEl.classList.add('err');
+      } finally {
+        buttonEl.disabled = false;
+        buttonEl.textContent = originalText;
+      }
+    }
+
+    function makeInteractiveLive() {
+      const pres = contentArea.querySelectorAll('.content pre');
+      
+      pres.forEach((pre) => {
+        const code = pre.textContent.trim();
+        const shell = document.createElement('div');
+        shell.className = 'interactive-shell';
+        shell.innerHTML = `
+          <div class="shell-header">
+            <span>Interactive Shell</span>
+            <button class="shell-run-btn" type="button">Run Code</button>
+          </div>
+          <textarea class="shell-editor" spellcheck="false" rows="${code.split('\n').length + 2}">${esc(code)}</textarea>
+          <pre class="shell-output">Click 'Run Code' to execute...</pre>
+        `;
+        
+        const runBtn = shell.querySelector('.shell-run-btn');
+        const editor = shell.querySelector('.shell-editor');
+        const output = shell.querySelector('.shell-output');
+        
+        runBtn.onclick = () => executePython(editor.value, output, runBtn);
+
+        // Support Tab key inside editor
+        editor.addEventListener('keydown', (e) => {
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            editor.value = editor.value.substring(0, start) + "    " + editor.value.substring(end);
+            editor.selectionStart = editor.selectionEnd = start + 4;
+          }
+        });
+        
+        pre.replaceWith(shell);
+      });
+    }
+
+    function renderActiveChapter() {
+      const ch = PYTHON_CHAPTERS[activeChapter];
+      contentArea.innerHTML = `
+        <h1>${ch.title}</h1>
+        <div class="metadata">
+          <span>📖 Chapter ${activeChapter + 1} of ${PYTHON_CHAPTERS.length}</span>
+          <span>⏱️ ${ch.category}</span>
+          <span>⚙️ ${ch.subtitle}</span>
+        </div>
+        <div class="content">
+          ${ch.content}
+        </div>
+      `;
+
+      // Convert code blocks to active playgrounds
+      makeInteractiveLive();
+
+      // Update sidebar states
+      $$('.reader-sidebar .toc-item').forEach((item, idx) => {
+        item.classList.toggle('active', idx === activeChapter);
+      });
+
+      // Update pagination info
+      prevBtn.disabled = activeChapter === 0;
+      nextBtn.disabled = activeChapter === PYTHON_CHAPTERS.length - 1;
+      progressInfo.textContent = `Chapter ${activeChapter + 1} of ${PYTHON_CHAPTERS.length}`;
+      headerChapter.textContent = `Chapter ${activeChapter + 1} of ${PYTHON_CHAPTERS.length}`;
+
+      // Save state
+      localStorage.setItem('python-active-chapter', activeChapter);
+      
+      // Scroll content area back to top
+      contentArea.parentElement.scrollTop = 0;
+    }
+
+    // Render TOC Sidebar
+    tocList.innerHTML = PYTHON_CHAPTERS.map((ch, idx) => `
+      <li class="toc-item ${idx === activeChapter ? 'active' : ''}">
+        <button type="button" data-chapter-index="${idx}">${ch.title}</button>
+      </li>
+    `).join('');
+
+    // Bind sidebar chapter selection
+    tocList.onclick = (e) => {
+      const btn = e.target.closest('button');
+      if (btn) {
+        activeChapter = parseInt(btn.dataset.chapterIndex, 10);
+        renderActiveChapter();
+      }
+    };
+
+    // Pagination Click Listeners
+    prevBtn.onclick = () => {
+      if (activeChapter > 0) {
+        activeChapter--;
+        renderActiveChapter();
+      }
+    };
+
+    nextBtn.onclick = () => {
+      if (activeChapter < PYTHON_CHAPTERS.length - 1) {
+        activeChapter++;
+        renderActiveChapter();
+      }
+    };
+
+    // Theme Switch Click Listener
+    themeBtn.onclick = () => {
+      const isLight = reader.classList.toggle('reader-light-theme');
+      localStorage.setItem('reader-theme', isLight ? 'light' : 'dark');
+    };
+
+    // Close / Go Back Click Listener
+    closeBtn.onclick = () => {
+      reader.classList.remove('is-active');
+      reader.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = ''; // Restore background scroll
+    };
+
+    // Keyboard navigation
+    const handleKeyboardNav = (e) => {
+      if (!reader.classList.contains('is-active')) {
+        window.removeEventListener('keydown', handleKeyboardNav);
+        return;
+      }
+      
+      // Bypass if inside textarea editor
+      if (document.activeElement && (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT')) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (e.key === 'ArrowRight' || key === 'd') {
+        if (activeChapter < PYTHON_CHAPTERS.length - 1) {
+          activeChapter++;
+          renderActiveChapter();
+        }
+      } else if (e.key === 'ArrowLeft' || key === 'a') {
+        if (activeChapter > 0) {
+          activeChapter--;
+          renderActiveChapter();
+        }
+      } else if (key === 't') {
+        themeBtn.click();
+      } else if (e.key === 'Escape') {
+        closeBtn.click();
+      }
+    };
+    window.addEventListener('keydown', handleKeyboardNav);
+
+    // Initial render
+    renderActiveChapter();
   }
 
   // -------------------------------------------------- mcp tools simulation logic
@@ -1064,6 +1792,12 @@
       // If resume is blocked, let the global warning interceptor handle it
       if (CONFIG.features && CONFIG.features.blockResume) return;
 
+      // Load PDF dynamically to prevent auto-focus scroll-down on page load
+      const dataSrc = iframe.getAttribute('data-src');
+      if (dataSrc && (!iframe.src || iframe.src === 'about:blank' || iframe.src.endsWith('about:blank'))) {
+        iframe.src = dataSrc;
+      }
+
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden'; // Lock background scrolling
@@ -1135,10 +1869,10 @@
 
     if (!modal || !closeBtn || !iconEl || !titleEl || !textEl) return;
 
-    const showWarning = (type) => {
+    window.showStatusWarning = (type) => {
       let icon = '🔗';
       let title = 'Link Offline';
-      let text = 'This profile is currently offline for updates. Please reach out via email or contact form!';
+      let text = 'This profile is currently offline for updates. Please reach out via email!';
 
       if (type === 'resume') {
         icon = '📄';
@@ -1156,6 +1890,10 @@
         icon = '📸';
         title = 'Instagram Offline';
         text = 'My Instagram profile is temporarily offline for maintenance. Please check back shortly or reach out via email/contact form!';
+      } else if (type === 'contact') {
+        icon = '✉️';
+        title = 'Contact Form Offline';
+        text = 'The contact form is temporarily offline for maintenance. Please feel free to reach out directly via email at sanjubibin44@gmail.com!';
       }
 
       iconEl.textContent = icon;
@@ -1200,7 +1938,7 @@
                        href.includes('Resume.pdf');
       if (isResume && CONFIG.features && CONFIG.features.blockResume) {
         e.preventDefault();
-        showWarning('resume');
+        window.showStatusWarning('resume');
         return;
       }
 
@@ -1208,7 +1946,7 @@
       const isGitHub = href.includes('github.com') || ariaLabel.includes('github') || textContent.includes('github');
       if (isGitHub && CONFIG.features && CONFIG.features.blockGitHub) {
         e.preventDefault();
-        showWarning('github');
+        window.showStatusWarning('github');
         return;
       }
 
@@ -1216,7 +1954,7 @@
       const isLinkedIn = href.includes('linkedin.com') || ariaLabel.includes('linkedin') || textContent.includes('linkedin');
       if (isLinkedIn && CONFIG.features && CONFIG.features.blockLinkedIn) {
         e.preventDefault();
-        showWarning('linkedin');
+        window.showStatusWarning('linkedin');
         return;
       }
 
@@ -1224,7 +1962,7 @@
       const isInstagram = href.includes('instagram.com') || ariaLabel.includes('instagram') || textContent.includes('instagram');
       if (isInstagram && CONFIG.features && CONFIG.features.blockInstagram) {
         e.preventDefault();
-        showWarning('instagram');
+        window.showStatusWarning('instagram');
         return;
       }
     });
@@ -1242,13 +1980,15 @@
   renderSocials();
   renderContactMeta();
   renderFooter();
+  renderBlogDropdown();
 
   initNav();
+  initBlogDropdown();
   initForm();
   initFilters();
   initAudioEvents();
-  initContextHighlights();
   initProjectDrawer();
+  initGuidesDrawer();
   initResumeModal();
   initStatusWarningModal();
 

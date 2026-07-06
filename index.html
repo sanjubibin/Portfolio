@@ -50,6 +50,15 @@
       <a href="#contact" data-gel data-magnet>Contact</a>
     </nav>
     <button id="cli-nav-btn" class="nav__brand nav__cli" aria-label="Open Terminal Console" data-gel data-magnet>&gt;_</button>
+    <div class="nav__dropdown-wrapper" id="blog-nav-wrapper">
+      <button id="blog-nav-btn" class="nav__brand nav__blog" aria-label="Open Blog Publications" data-gel data-magnet>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; display:block;">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+      </button>
+      <div class="glass nav__dropdown" id="blog-dropdown" aria-hidden="true"></div>
+    </div>
     <a class="btn btn--sm glass nav__resume" href="Files/Resume.pdf" target="_blank" rel="noopener" data-gel data-magnet>Resume</a>
     <span class="nav__progress" aria-hidden="true"></span>
     <div class="nav__indicator" id="nav-indicator" aria-hidden="true"></div>
@@ -138,8 +147,8 @@
       <!-- ============================ HERO ============================ -->
       <section id="hero" class="hero">
         <div class="hero__content">
-          <p class="hero__eyebrow" id="hero-eyebrow">Backend &amp; AI Engineer</p>
-          <h1 class="hero__title" id="hero-title">Sanju Antony</h1>
+          <div class="hero__badge glass" id="hero-badge">Sanju Antony</div>
+          <h1 class="hero__title" id="hero-title">Backend &amp; AI Engineer</h1>
           <p class="hero__sub" id="hero-sub">Building intelligent systems across backend, AI, and Web3</p>
           <div class="hero__cta">
             <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Projects</a>
@@ -345,6 +354,125 @@
     </div>
   </aside>
 
+  <!-- Guides Slide-out Drawer -->
+  <div id="guides-drawer-overlay" class="drawer-overlay" aria-hidden="true"></div>
+  <aside id="guides-drawer" class="glass project-drawer" aria-hidden="true">
+    <header class="project-drawer__header">
+      <h3 id="guides-drawer-title" class="project-drawer__title">Learning Guides</h3>
+      <button id="guides-drawer-close" class="project-drawer__close" aria-label="Close Guides">&times;</button>
+    </header>
+    <div class="guides-drawer__body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+      <div class="guides-drawer__slider" id="guides-drawer-slider">
+        <!-- Level 1: Main Menu -->
+        <div class="guides-drawer__panel" id="guides-panel-l1">
+          <div class="guides-list">
+            <button class="guides-item guides-item--active" id="guides-btn-backend" type="button">
+              <div class="guides-item__info">
+                <span class="guides-item__title">🌐 Backend Development</span>
+                <span class="guides-item__desc">Python, FastAPI, databases, and microservices.</span>
+              </div>
+              <span class="guides-item__arrow">→</span>
+            </button>
+            <div class="guides-item guides-item--disabled">
+              <div class="guides-item__info">
+                <span class="guides-item__title">🎨 Frontend Essentials</span>
+                <span class="guides-item__desc">HTML, CSS, JavaScript, and responsive design.</span>
+              </div>
+              <span class="guides-item__tag">Soon</span>
+            </div>
+            <div class="guides-item guides-item--disabled">
+              <div class="guides-item__info">
+                <span class="guides-item__title">☁️ Cloud & DevOps</span>
+                <span class="guides-item__desc">Docker, AWS, and server deployment.</span>
+              </div>
+              <span class="guides-item__tag">Soon</span>
+            </div>
+          </div>
+        </div>
+        <!-- Level 2: Backend Submenu -->
+        <div class="guides-drawer__panel" id="guides-panel-l2">
+          <button class="guides-back-btn" id="guides-back-l2-btn" type="button">← Back to Categories</button>
+          <div class="guides-list">
+            <button class="guides-item guides-item--active" id="guides-btn-python" type="button">
+              <div class="guides-item__info">
+                <span class="guides-item__title">🐍 Python from Scratch</span>
+                <span class="guides-item__desc">A step-by-step intro designed for non-CS engineers.</span>
+              </div>
+              <span class="guides-item__arrow">→</span>
+            </button>
+            <div class="guides-item guides-item--disabled">
+              <div class="guides-item__info">
+                <span class="guides-item__title">⚡ FastAPI Mastery</span>
+                <span class="guides-item__desc">Learn how to build high-performance APIs.</span>
+              </div>
+              <span class="guides-item__tag">Soon</span>
+            </div>
+            <div class="guides-item guides-item--disabled">
+              <div class="guides-item__info">
+                <span class="guides-item__title">⛓️ Web3 & Smart Contracts</span>
+                <span class="guides-item__desc">Solidity, tokens, and Hardhat development.</span>
+              </div>
+              <span class="guides-item__tag">Soon</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Full Screen Learning Reader Overlay -->
+  <div id="learning-reader" class="learning-reader" aria-hidden="true">
+    <!-- Header -->
+    <header class="reader-header glass">
+      <button class="btn btn--sm glass reader-back-btn" id="reader-close-btn" data-gel type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Go Back
+      </button>
+      <div class="reader-header__title">
+        <h4 id="reader-header-title">Python from Scratch</h4>
+        <span id="reader-header-chapter">Chapter 1 of 8</span>
+      </div>
+      <button id="reader-theme-btn" class="theme-toggle-btn" aria-label="Toggle Theme" type="button">
+        <span class="icon-dark">🌙</span>
+        <span class="icon-light">☀️</span>
+      </button>
+    </header>
+
+    <!-- Main Container -->
+    <div class="reader-body">
+      <!-- TOC Sidebar -->
+      <aside class="reader-sidebar glass">
+        <div class="sidebar-title">Chapters</div>
+        <ul class="toc-list" id="reader-toc-list">
+          <!-- Dynamically populated -->
+        </ul>
+      </aside>
+
+      <!-- Main Content reading panel -->
+      <main class="reader-content glass">
+        <div id="reader-chapter-content">
+          <!-- Dynamically populated -->
+        </div>
+
+        <!-- Toolbar Pagination Controls -->
+        <div class="pagination-bar" style="margin-top: 2rem;">
+          <button class="pag-btn" id="reader-prev-btn" type="button">← Previous</button>
+          <span class="progress-info" id="reader-progress-info">Page 1 of 8</span>
+          <button class="pag-btn" id="reader-next-btn" type="button">Next →</button>
+        </div>
+        
+        <!-- Keyboard Shortcuts Help Footer -->
+        <div class="shortcut-hints">
+          <span>Navigate: <span class="key-badge">←</span> / <span class="key-badge">→</span> or <span class="key-badge">A</span> / <span class="key-badge">D</span></span>
+          <span>Theme: <span class="key-badge">T</span></span>
+        </div>
+      </main>
+    </div>
+  </div>
+
   <!-- Web3 MetaMask Sandbox Modal -->
   <div id="dapp-modal" class="dapp-modal" aria-hidden="true">
     <div class="glass dapp-modal__box" id="dapp-modal-box">
@@ -390,7 +518,7 @@
         <button id="resume-modal-close" class="resume-modal__close" aria-label="Close Resume">&times;</button>
       </header>
       <div class="resume-modal__body">
-        <iframe id="resume-iframe" src="Files/Resume.pdf#toolbar=0&navpanes=0&statusbar=0&messages=0" style="width:100%; height:100%; border:none;" title="Resume Preview"></iframe>
+        <iframe id="resume-iframe" data-src="Files/Resume.pdf#toolbar=0&navpanes=0&statusbar=0&messages=0" src="about:blank" style="width:100%; height:100%; border:none;" title="Resume Preview"></iframe>
         <div class="resume-modal__blocker" aria-hidden="true"></div>
       </div>
     </div>

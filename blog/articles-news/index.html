@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Articles & Tech News | Sanju Antony Blog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../blog-article.css">
+</head>
+<body>
+  <article class="article-container" style="max-width: 800px; margin: 60px auto;">
+    <div class="header-actions">
+      <a href="../../index.html" class="back-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Back to Portfolio
+      </a>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Theme">
+        <span class="icon-dark">🌙</span>
+        <span class="icon-light">☀️</span>
+      </button>
+    </div>
+    
+    <h1>Shared Articles & Major Tech News</h1>
+    
+    <div class="metadata">
+      <span>📅 Ongoing Updates</span>
+      <span>⏱️ Multi-topic feed</span>
+      <span>🏷️ Tech Publications</span>
+    </div>
+
+    <div class="content">
+      <p>Welcome to my tech news feed and article repository! Here, I share summaries, links, and analyses of emerging technologies, microservice design patterns, and Web3 trends that I keep track of.</p>
+
+      <h2>Current Highlights</h2>
+      <ul>
+        <li><strong>AI Developer Tooling & Agent Runtimes:</strong> Exploring the evolution of developer companions, command-line coding systems, and standardizing tool routing protocols (like MCP) to bypass security sandboxes.</li>
+        <li><strong>Decentralized Systems & Smart Contract Security:</strong> Auditing patterns for Solidity contracts on Layer 2 rollups, gas optimization tactics, and secure Gnosis Safe multisig governance architectures.</li>
+        <li><strong>Scalable Backend Architectures:</strong> Moving enterprise Java web services to modern Python frameworks, database indexing best practices, and caching strategies.</li>
+      </ul>
+
+      <h2>Learning & Tech News</h2>
+      <p>I regularly post deep-dives and reviews of new tools on channels like Medium, Dev.to, and Hashnode. Stay tuned for my weekly digests summarizing how complex systems are architected in production environments!</p>
+    </div>
+  </article>
+
+  <script>
+    // Initialize Theme
+    const savedTheme = localStorage.getItem('blog-theme') || 'dark';
+    if (savedTheme === 'light') {
+      document.body.classList.add('light-theme');
+    }
+
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    themeBtn.addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-theme');
+      localStorage.setItem('blog-theme', isLight ? 'light' : 'dark');
+    });
+
+    // Keyboard Shortcut Theme Toggle
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 't') {
+        themeBtn.click();
+      }
+    });
+
+    // Sync theme across tabs
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'blog-theme') {
+        document.body.classList.toggle('light-theme', e.newValue === 'light');
+      }
+    });
+  </script>
+</body>
+</html>
