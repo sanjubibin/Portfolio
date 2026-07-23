@@ -43,6 +43,28 @@
     const toggleH = toggleRect.height || 44;
     const toggleBR = window.getComputedStyle(toggleBtn).borderRadius || (isMobile ? '50%' : '22px');
 
+    // No animation engine (perf-lite devices / blocked CDN): plain show/hide.
+    if (!window.gsap) {
+      const cs = chatContainer.style;
+      if (isOpen) {
+        const ping = $('.ai-chat-toggle__ping', toggleBtn);
+        if (ping) ping.style.display = 'none';
+        cs.cssText += `display:flex; opacity:1; pointer-events:all;` +
+          `width:${targetWidth}px; height:${targetHeight}px;` +
+          `left:auto; top:auto; bottom:${targetBottom}px; right:${targetRight}px;` +
+          `border-radius:${targetBorderRadius};`;
+        Array.from(chatContainer.children).forEach((c) => { c.style.opacity = '1'; });
+        toggleBtn.style.opacity = '0';
+        toggleBtn.style.pointerEvents = 'none';
+        chatInput.focus();
+      } else {
+        cs.display = 'none';
+        toggleBtn.style.opacity = '1';
+        toggleBtn.style.pointerEvents = 'all';
+      }
+      return;
+    }
+
     if (isOpen) {
       // Hide notification ping once opened
       const ping = $('.ai-chat-toggle__ping', toggleBtn);

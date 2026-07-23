@@ -32,7 +32,6 @@
   --bg-1: #f1f5f9;
 
   /* Ambient flowing HSL colors: soft pastels for light backdrop blobs */
-  --h-navy:   calc(var(--hue) - 36) 45% 86%;
   --h-violet: var(--hue)            55% 85%;
   --h-teal:   calc(var(--hue) - 88) 50% 84%;
   --h-accent: calc(var(--hue) - 38) 75% 45%;
@@ -43,14 +42,12 @@
   --accent: hsl(var(--h-accent));
   --accent-2: hsl(var(--h-aqua));
 
-  /* Ambient drift: ~80s per full revolution, quantized to ~1 update/sec
-     (steps, not linear) so the color system repaints at most a couple
-     times a second instead of every animation frame — kept off the
-     transform/opacity-only rule deliberately, since hue literally can't
-     be expressed as a transform; this is the cheapest equivalent.
+  /* Ambient drift: ~320s per full revolution in 96 steps — one tiny
+     3.75-degree hue shift every ~3.3s, rare enough that the style-recalc
+     repaint each step causes can never read as stutter on any device.
      animation-delay is set per-visit by a tiny inline script in <head>
      so each page load starts at a different, random point in the cycle. */
-  animation: hue-rotate 80s steps(96, end) infinite;
+  animation: hue-rotate 320s steps(96, end) infinite;
   animation-delay: var(--hue-delay, 0s);
 
   /* Deep slate ink contrast for light theme readability */
@@ -58,13 +55,13 @@
   --ink-mid: #334155;
   --ink-low: #64748b;
 
-  /* Frosted milky white glassmorphism overlay */
-  --glass-fill: rgba(255, 255, 255, 0.25);
+  /* Milky white glass fill — opaque enough to read as frosted glass over
+     the pastel background without any live backdrop sampling */
+  --glass-fill: rgba(255, 255, 255, 0.68);
 
   --r-lg: 28px;
   --r-md: 24px;
   --r-pill: 999px;
-  --blur: 24px;
 
   --font-main: 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --font-code: 'Fira Code', ui-monospace, monospace;
@@ -115,15 +112,6 @@ ul { list-style: none; }
   overflow: hidden;
   background: var(--bg-0);
 }
-.bg__canvas-dots {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 3;
-}
-
 /* Base is composed symmetrically around the exact viewport center: the
    gravity-well glow sits dead center, the violet/teal tints mirror each
    other through it, and a centered vignette fades to the deepest navy at
@@ -139,76 +127,43 @@ ul { list-style: none; }
     radial-gradient(140% 140% at 50% 50%, var(--bg-1), var(--bg-0) 65%);
 }
 
-/* Color blobs flow like water around a gravity well at the screen center:
-   every blob orbits the center (rotate + translateX around its own origin),
-   inner orbits run faster (Kepler-style), and each orbit's radius breathes
-   in and out like a current. Gradient falloff IS the blur — no filter cost. */
+/* Two soft color blobs, frozen at fixed orbital positions (static
+   transforms — the gradient falloff IS the blur, so there is no filter
+   and no animation cost; they rasterize once and are free forever). */
 .bg__blob {
   position: absolute;
   left: 50%;
   top: 50%;
   border-radius: 50%;
-  will-change: transform;
   z-index: 2;
 }
 .bg__blob--1 {
   width: 55vmax; height: 55vmax;
   margin: -27.5vmax 0 0 -27.5vmax;
   background: radial-gradient(closest-side, hsl(var(--h-violet) / 0.36), transparent 68%);
-  animation: orbit-1 110s linear infinite;
-  animation-delay: -40s;
+  transform: rotate(131deg) translateX(34vmax) scale(1.08);
 }
 .bg__blob--2 {
   width: 55vmax; height: 55vmax;
   margin: -27.5vmax 0 0 -27.5vmax;
   background: radial-gradient(closest-side, hsl(var(--h-teal) / 0.28), transparent 68%);
-  animation: orbit-2 85s linear infinite;
-  animation-delay: -30s;
-}
-.bg__blob--3 {
-  width: 44vmax; height: 44vmax;
-  margin: -22vmax 0 0 -22vmax;
-  background: radial-gradient(closest-side, hsl(var(--h-blue) / 0.32), transparent 68%);
-  animation: orbit-3 55s linear infinite;
-  animation-delay: -18s;
-}
-.bg__blob--4 {
-  width: 34vmax; height: 34vmax;
-  margin: -17vmax 0 0 -17vmax;
-  background: radial-gradient(closest-side, hsl(var(--h-cyan) / 0.18), transparent 68%);
-  animation: orbit-4 70s linear infinite;
-  animation-delay: -55s;
+  transform: rotate(233deg) translateX(21vmax) scale(0.98);
 }
 
-@keyframes orbit-1 {
-  0%   { transform: rotate(0deg)   translateX(30vmax) scale(1); }
-  50%  { transform: rotate(180deg) translateX(38vmax) scale(1.15); }
-  100% { transform: rotate(360deg) translateX(30vmax) scale(1); }
-}
-@keyframes orbit-2 {
-  0%   { transform: rotate(0deg)   translateX(24vmax) scale(1.05); }
-  50%  { transform: rotate(180deg) translateX(17vmax) scale(0.92); }
-  100% { transform: rotate(360deg) translateX(24vmax) scale(1.05); }
-}
-@keyframes orbit-3 {
-  0%   { transform: rotate(0deg)   translateX(12vmax) scale(1); }
-  50%  { transform: rotate(180deg) translateX(18vmax) scale(1.1); }
-  100% { transform: rotate(360deg) translateX(12vmax) scale(1); }
-}
-@keyframes orbit-4 {
-  0%   { transform: rotate(0deg)   translateX(34vmax) scale(1); }
-  50%  { transform: rotate(180deg) translateX(26vmax) scale(0.9); }
-  100% { transform: rotate(360deg) translateX(34vmax) scale(1); }
-}
-
-.bg__grain {
+/* Blueprint dot matrix: a fine engineering dot grid over the mesh, masked
+   so it dissolves toward the viewport edges and never competes with
+   content. Entirely static — rasterized once, cached by the GPU, zero
+   per-frame cost on every device tier — so it needs no perf-lite override. */
+.bg::after {
+  content: "";
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 160px 160px;
-  opacity: 0.02;
-  mix-blend-mode: multiply;
-  z-index: 5;
+  z-index: 4;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(51, 65, 85, 0.24) 1px, transparent 1.4px);
+  background-size: 21px 21px;
+  -webkit-mask-image: radial-gradient(110% 95% at 50% 42%, #000 25%, transparent 78%);
+  mask-image: radial-gradient(110% 95% at 50% 42%, #000 25%, transparent 78%);
 }
 
 /* ------------------------------------------------------- glass primitives */
@@ -226,8 +181,6 @@ ul { list-style: none; }
       rgba(255, 255, 255, 0.08) 38%,
       rgba(255, 255, 255, 0) 62%,
       rgba(255, 255, 255, 0.12)) border-box;
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.85);
-  backdrop-filter: blur(var(--blur)) saturate(1.85);
   /* the ambient outer glow is deliberately NOT tied to --hue: .glass is
      applied to nearly every element on the page, so animating this would
      repaint the entire DOM every tick — the visible, decorative accents
@@ -291,14 +244,21 @@ ul { list-style: none; }
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 0.35s ease, color 0.35s ease;
-  --glass-fill: rgba(255, 255, 255, 0.07);
+  transition: box-shadow 0.35s ease, color 0.35s ease, border-color 0.35s ease;
+  /* Solid milky fill + visible accent border: with live backdrop blur gone,
+     a 0.07 fill left these buttons see-through and edge-less. */
+  --glass-fill: rgba(255, 255, 255, 0.75);
+  border: 1.5px solid hsl(var(--h-accent) / 0.35);
 }
-.btn:hover { box-shadow: 0 12px 40px -12px hsl(var(--h-accent) / 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14); }
+.btn:hover {
+  border-color: hsl(var(--h-accent) / 0.75);
+  box-shadow: 0 12px 40px -12px hsl(var(--h-accent) / 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
 
 .btn--primary {
   --glass-fill: hsl(var(--h-accent));
   color: #ffffff;
+  border-color: hsl(var(--h-accent) / 0.6);
   box-shadow:
     0 12px 32px -8px hsl(var(--h-accent) / 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
@@ -328,11 +288,11 @@ ul { list-style: none; }
   max-width: calc(100vw - 2rem);
   /* Custom color-shifting glass border matching the theme accents */
   border: 1.5px solid transparent;
+  /* Near-opaque fill: the nav floats over headings and buttons while
+     scrolling, so content must never ghost through its links. */
   background:
-    linear-gradient(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35)) padding-box,
+    linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)) padding-box,
     linear-gradient(135deg, hsl(var(--h-accent) / 0.35), hsl(var(--h-violet) / 0.30) 50%, hsl(var(--h-aqua) / 0.35)) border-box;
-  -webkit-backdrop-filter: blur(20px) saturate(190%);
-  backdrop-filter: blur(20px) saturate(190%);
   box-shadow: 
     0 20px 40px -15px rgba(15, 23, 42, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
@@ -375,7 +335,7 @@ ul { list-style: none; }
 }
 
 .nav__dropdown {
-  --glass-fill: rgba(255, 255, 255, 0.88) !important;
+  --glass-fill: rgba(255, 255, 255, 0.94) !important;
   position: absolute !important;
   top: calc(100% + 14px) !important;
   right: 0 !important;
@@ -516,23 +476,38 @@ ul { list-style: none; }
 .nav__links a.is-active { color: var(--ink-hi); background: hsl(var(--h-accent) / 0.12); border-color: transparent; }
 .nav__links a:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent) inset; color: var(--ink-hi); }
 
+/* The nav's one primary CTA: same gradient family as the SA / terminal /
+   book buttons, so it reads as "the action" instead of a washed-out pill
+   on the near-white nav. */
 .nav__resume {
-  border: 1.5px solid hsl(var(--h-accent) / 0.35) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.88), hsl(var(--h-violet) / 0.82) 55%, hsl(var(--h-aqua) / 0.78)) !important;
+  color: #ffffff !important;
+  border: 1.5px solid hsl(var(--h-accent) / 0.6) !important;
+  box-shadow:
+    0 2px 8px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
   transition: all 0.3s ease !important;
 }
 .nav__resume:hover {
-  border-color: hsl(var(--h-accent) / 0.75) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-violet) / 0.90) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  border-color: hsl(var(--h-accent)) !important;
+  box-shadow:
+    0 8px 20px -6px hsl(var(--h-accent) / 0.4),
+    0 0 8px hsl(var(--h-violet) / 0.25) !important;
   transform: translateY(-1px) scale(1.03);
 }
 
 /* Scroll progress along the bottom edge of the nav pill. */
 .nav__progress {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  /* Inset past the pill's corner curves: .nav can't clip (overflow must stay
+     visible for the blog dropdown), so the track has to stay within the flat
+     bottom edge or the bar juts out beyond the rounded corners. */
+  left: 26px;
+  right: 26px;
+  bottom: 1px;
   height: 2.5px;
-  border-radius: 0 0 22px 22px;
+  border-radius: 2px;
   z-index: 3;
   background: linear-gradient(90deg, hsl(var(--h-accent)), hsl(var(--h-violet)), hsl(var(--h-aqua)));
   transform: scaleX(0);
@@ -616,7 +591,21 @@ ul { list-style: none; }
   transition: opacity 0.8s ease;
 }
 
-.hero__sub { font-size: 1.15rem; color: var(--ink-low); font-weight: 300; }
+.hero__sub { font-size: 1.15rem; color: var(--ink-low); font-weight: 400; }
+
+/* Quiet proof line under the CTAs: concrete results in utility type. */
+.hero__proof {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.4rem;
+  font: 500 0.8rem var(--font-code);
+  letter-spacing: 0.02em;
+  color: var(--ink-low);
+}
+.hero__proof-dot { color: hsl(var(--h-accent) / 0.65); font-weight: 700; }
 
 /* Rotating tagline — phrases stacked in one grid cell; JS drives the
    stack's width to match the active phrase (tweened on every swap) so
@@ -736,7 +725,37 @@ ul { list-style: none; }
   align-items: flex-start;
   gap: 1rem;
 }
-.project-card h3 { font-size: 1.32rem; color: var(--ink-hi); letter-spacing: -0.01em; }
+.project-card h3 { flex: 1; font-size: 1.32rem; color: var(--ink-hi); letter-spacing: -0.01em; }
+
+/* Category monogram tile: 2-letter mark on a category-colored gradient.
+   Static CSS riding the hue tokens — zero runtime cost. */
+.project-card__mark {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  font: 800 0.82rem var(--font-code);
+  letter-spacing: 0.04em;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 8px 20px -8px hsl(var(--h-accent) / 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.project-card__mark--ai {
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 65% 58%));
+}
+.project-card__mark--web3 {
+  background: linear-gradient(135deg, hsl(var(--h-aqua)), hsl(calc(var(--hue) - 60) 60% 50%));
+  box-shadow:
+    0 8px 20px -8px hsl(var(--h-aqua) / 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.project-card__mark--backend {
+  background: linear-gradient(135deg, hsl(calc(var(--hue) - 37) 65% 50%), hsl(var(--h-accent)));
+}
 
 .badge {
   font-size: 0.7rem;
@@ -977,7 +996,7 @@ ul { list-style: none; }
 }
 
 @media (max-width: 768px) {
-  :root { --blur: 16px; --r-lg: 24px; }
+  :root { --r-lg: 24px; }
   .section { padding: 2.5rem 1.25rem 3rem; }
   .projects__grid { grid-template-columns: 1fr; }
   .skills { grid-template-columns: 1fr; }
@@ -989,6 +1008,20 @@ ul { list-style: none; }
 
 @media (max-width: 600px) {
   .nav__resume { display: none; }
+  /* Project card head: on narrow screens the badge no longer shares the
+     row with the title (it was crushing long titles into one word per
+     line) — mark + title sit together, badge moves to its own line. */
+  .project-card__head {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 0.7rem 0.9rem;
+  }
+  .project-card__head .badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .project-card h3 { font-size: 1.15rem; }
   .about__stats { grid-template-columns: 1fr; }
   .stat { flex-direction: row; align-items: baseline; gap: 0.9rem; }
   .hero__cta .btn { padding: 0.8rem 1.5rem; }
@@ -1018,9 +1051,6 @@ ul { list-style: none; }
   .ai-chat-toggle__text {
     display: none !important;
   }
-  .ai-chat-toggle__ring {
-    border-radius: 50% !important;
-  }
   /* Ultra-compact navbar layout to prevent any breaking on tiny displays */
   .nav {
     gap: 0.3rem !important;
@@ -1048,12 +1078,9 @@ ul { list-style: none; }
 
 /* --------------------------------------------------------- reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  /* paused (not none): negative delays leave each blob frozen mid-orbit,
-     scattered — animation:none would stack them all at the center. Same
-     reasoning for --hue: paused keeps the random per-visit starting hue
+  /* paused (not none): keeps the random per-visit starting hue
      (still different each load) without any ongoing color motion. */
   :root { animation-play-state: paused; }
-  .bg__blob { animation-play-state: paused; }
   .glass::after { display: none; }
   .social:hover::after, .social:focus-visible::after { animation: none; }
   .pill, .project-card__desc, .btn, .chip, .form-control, .nav__links a {
@@ -1105,31 +1132,6 @@ ul { list-style: none; }
 .ai-chat-toggle:hover svg {
   transform: rotate(12deg) scale(1.1);
 }
-.ai-chat-toggle__ring {
-  position: absolute;
-  inset: -6px;
-  border-radius: 22px;
-  border: 1.5px solid hsl(var(--h-accent) / 0.32);
-  pointer-events: none;
-  z-index: -1;
-  animation: ripple-neural 2.4s infinite ease-out;
-  opacity: 0;
-}
-.ai-chat-toggle__ring--2 {
-  animation-delay: 1.2s;
-}
-@keyframes ripple-neural {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.85;
-    border-color: hsl(var(--h-accent) / 0.35);
-  }
-  100% {
-    transform: scale(1.45);
-    opacity: 0;
-    border-color: hsl(var(--h-violet) / 0);
-  }
-}
 .ai-chat-toggle__ping {
   position: absolute;
   top: 2px;
@@ -1140,11 +1142,6 @@ ul { list-style: none; }
   background: var(--accent-2);
   border: 1.5px solid var(--bg-0);
   box-shadow: 0 0 8px var(--accent-2);
-  animation: pulse-ping 2s infinite ease-in-out;
-}
-@keyframes pulse-ping {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.3); opacity: 0.4; }
 }
 
 .ai-chat-container {
@@ -1165,27 +1162,21 @@ ul { list-style: none; }
   min-height: 380px;
   max-width: 90vw;
   max-height: 90vh;
-  --glass-fill: rgba(255, 255, 255, 0.55);
+  /* Solid panel (no glass): chat is a reading surface — page content
+     showing through behind the messages hurt legibility, and the live
+     backdrop blur cost per frame while the widget was open. The gradient
+     accent border keeps the futuristic identity. */
+  --glass-fill: rgba(255, 255, 255, 0.97);
   border: 1.5px solid transparent;
-  background: 
+  background:
     linear-gradient(var(--glass-fill), var(--glass-fill)) padding-box,
     linear-gradient(135deg, hsl(var(--h-accent) / 0.6), hsl(var(--h-violet) / 0.6), hsl(var(--h-aqua) / 0.6)) border-box;
-  animation: chat-breathing 4s infinite ease-in-out;
-}
-
-@keyframes chat-breathing {
-  0%, 100% {
-    box-shadow: 
-      0 32px 80px -16px rgba(15, 23, 42, 0.15), 
-      0 0 12px -2px hsl(var(--h-accent) / 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  }
-  50% {
-    box-shadow: 
-      0 32px 80px -16px rgba(15, 23, 42, 0.15), 
-      0 0 24px 2px hsl(var(--h-accent) / 0.38),
-      inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  }
+  /* Static glow (was an animated "breathing" box-shadow — box-shadow
+     animation repaints every frame, so it's now a fixed shadow). */
+  box-shadow:
+    0 32px 80px -16px rgba(15, 23, 42, 0.15),
+    0 0 16px -2px hsl(var(--h-accent) / 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .ai-chat-header {
@@ -1293,9 +1284,6 @@ ul { list-style: none; }
   flex-direction: column;
   gap: 0.8rem;
   scrollbar-width: thin;
-  /* Faint dot matrix background matching the theme */
-  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.04) 0.8px, transparent 0.8px);
-  background-size: 14px 14px;
 }
 .chat-msg {
   max-width: 82%;
@@ -1366,7 +1354,6 @@ ul { list-style: none; }
   .ai-chat-form input {
     font-size: 1rem;
   }
-  #cli-terminal-input,
   .cli-terminal__live-input {
     font-size: 1rem;
   }
@@ -1396,22 +1383,6 @@ ul { list-style: none; }
 .nav__links a.is-active {
   background: transparent !important;
   box-shadow: none !important;
-}
-
-/* -------------------------------------------- contextual link highlights */
-.context-highlight {
-  position: relative;
-  z-index: 10;
-  transform: translateY(-8px) scale(1.03) !important;
-  border-color: hsl(var(--h-accent) / 0.6) !important;
-  box-shadow: 
-    0 30px 70px -15px rgba(2, 4, 30, 0.75), 
-    0 0 32px -6px hsl(var(--h-accent) / 0.45) !important;
-}
-.context-fade {
-  opacity: 0.32 !important;
-  transform: scale(0.97) !important;
-  filter: blur(1.5px) !important;
 }
 
 /* --------------------------------------------- specular reveal shine sweep */
@@ -1447,8 +1418,6 @@ ul { list-style: none; }
   align-items: stretch;
   flex-shrink: 0;
   background: rgba(226, 232, 240, 0.85);   /* Glassmorphic tab bar */
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   position: relative;
   user-select: none;
@@ -1521,9 +1490,6 @@ ul { list-style: none; }
   min-height: 0;
   padding: 0.75rem 1rem;
   background: #f1f5f9;
-  /* Faint dot matrix grid matching the theme */
-  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
-  background-size: 20px 20px;
 }
 .cli-terminal__output {
   flex: 1;
@@ -1579,7 +1545,6 @@ ul { list-style: none; }
   align-items: center;
   line-height: 1.2;
 }
-#cli-terminal-input,
 .cli-terminal__live-input {
   flex: 1;
   background: none;
@@ -1596,7 +1561,6 @@ ul { list-style: none; }
   padding: 0;
   margin: 0;
 }
-#cli-terminal-input::placeholder,
 .cli-terminal__live-input::placeholder {
   color: rgba(15, 23, 42, 0.35);
   font-style: normal;
@@ -1616,8 +1580,6 @@ ul { list-style: none; }
   position: fixed;
   inset: 0;
   background: rgba(2, 2, 8, 0.4);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
   opacity: 0;
   pointer-events: none;
   z-index: 140;
@@ -1636,7 +1598,8 @@ ul { list-style: none; }
   z-index: 150;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
+  transform: translateX(100%) !important;
+  pointer-events: none;
   transition: transform 0.45s var(--ease-out);
   --glass-fill: rgba(255, 255, 255, 0.58);
   border-radius: 0;
@@ -1646,7 +1609,8 @@ ul { list-style: none; }
   box-shadow: -20px 0 60px -10px rgba(15, 23, 42, 0.12);
 }
 .project-drawer.is-open {
-  transform: translateX(0);
+  transform: translateX(0) !important;
+  pointer-events: all;
 }
 .project-drawer__header {
   display: flex;
@@ -1744,8 +1708,6 @@ ul { list-style: none; }
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.25);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
   z-index: 300;
   display: flex;
   align-items: center;
@@ -1975,8 +1937,6 @@ ul { list-style: none; }
   position: fixed;
   inset: 0;
   background-color: rgba(15, 23, 42, 0.25);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   z-index: 11000;
   display: flex;
   align-items: center;
@@ -2021,28 +1981,6 @@ ul { list-style: none; }
    SCROLLYTELLING ENGINE & PLATFORM VISUALS
    ========================================================================= */
 
-/* Scrollytelling Pinned Grid Layout (Immersive Background Core) */
-.scrolly__scene-col {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0; /* behind all interactive cards */
-  opacity: 0.18; /* soft background watermark visibility */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-.scrolly__scene-inner {
-  width: min(85vmin, 540px);
-  aspect-ratio: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 #main {
   position: relative;
   z-index: 10;
@@ -2071,57 +2009,6 @@ ul { list-style: none; }
 .section {
   padding: 2.2rem 0;
   display: block;
-}
-
-/* SVG Synapse Core & Orbiting Rings */
-.synapse-core-svg {
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 20px 48px rgba(15, 23, 42, 0.08));
-}
-.core-orbit {
-  transform-origin: 50% 50%;
-  animation: core-spin 60s linear infinite;
-}
-@keyframes core-spin {
-  to { transform: rotate(360deg); }
-}
-
-.core-layer {
-  transform-origin: 50% 50%;
-  transition: opacity 0.4s ease, transform 0.4s var(--ease-spring);
-}
-.core-layer__disk {
-  fill: rgba(255, 255, 255, 0.45);
-  stroke: url(#layer-border-grad);
-  stroke-width: 1.5;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-}
-.core-layer__node {
-  filter: drop-shadow(0 0 8px currentColor);
-}
-.core-layer__text {
-  fill: var(--ink-hi);
-  font-size: 2.2px;
-  pointer-events: none;
-  user-select: none;
-  opacity: 0.8;
-}
-
-/* Cartridges (Scene 3 Solutions) */
-.core-cartridges {
-  transition: opacity 0.4s ease;
-}
-.cartridge-box {
-  fill: rgba(255, 255, 255, 0.65);
-  stroke: url(#layer-border-grad);
-  stroke-width: 1.2;
-  filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.06));
-}
-.cartridge-group {
-  transform-origin: 50% 50%;
-  transition: transform 0.4s var(--ease-spring), opacity 0.4s ease;
 }
 
 /* Infinite Sliding Tech Blocks Marquee */
@@ -2163,8 +2050,6 @@ ul { list-style: none; }
   box-shadow: 
     0 8px 24px -6px rgba(15, 23, 42, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
   border-radius: var(--r-md);
   padding: 0.75rem 1.4rem;
   font-size: 0.92rem;
@@ -2193,36 +2078,11 @@ ul { list-style: none; }
   100% { transform: translateX(0); }
 }
 
-/* Floating Packet Canvas & Packets */
-.scrolly__packet-canvas {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 1;
-}
-.scrolly-packet {
-  position: absolute;
-  background: hsl(var(--h-accent) / 0.14);
-  border: 1px solid hsl(var(--h-accent) / 0.3);
-  color: hsl(var(--h-accent));
-  font-family: var(--font-code);
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border-radius: 6px;
-  white-space: nowrap;
-  will-change: transform, opacity;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-}
-
 /* ---------------------------------------------------- resume viewer modal */
 .resume-modal {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   z-index: 300;
   display: flex;
   align-items: center;
@@ -2309,8 +2169,6 @@ ul { list-style: none; }
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   z-index: 310;
   display: flex;
   align-items: center;
@@ -2369,12 +2227,6 @@ ul { list-style: none; }
    ========================================================================= */
 
 /* Guides Slider Panel Layout */
-.guides-drawer__container {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
-  width: 100%;
-}
 .guides-drawer__slider {
   display: flex;
   width: 200%;
@@ -2514,7 +2366,6 @@ ul { list-style: none; }
   border-radius: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(15, 23, 42, 0.7) !important;
-  backdrop-filter: blur(16px);
 }
 .reader-back-btn {
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
@@ -2951,4 +2802,112 @@ ul { list-style: none; }
   }
 }
 
+/* =========================================================================
+   EFFICIENT RENDERING — GLOBAL
+   The phone-tier optimizations applied to EVERY device: solid milky glass
+   (no live backdrop sampling), a fully static ambient background, and a
+   slow-stepped hue drift. The futurism comes from structure — dot matrix,
+   glass layering, the living color system — not from per-frame GPU work.
+   The .perf-lite class (low-end / data-saver / reduced-motion) still
+   additionally skips the GSAP download and offscreen rendering.
+   ========================================================================= */
 
+/* Modal & drawer dimmers: a deeper tint replaces the old backdrop blur. */
+.drawer-overlay, .dapp-modal, .resume-modal, .warning-modal, .contact-success {
+  background: rgba(15, 23, 42, 0.55);
+}
+.tech-block { background: rgba(255, 255, 255, 0.82); }
+
+/* Marquee autopause (any device): JS toggles this class when offscreen */
+.tech-marquee.is-offscreen .tech-marquee__track { animation-play-state: paused; }
+.perf-lite .tech-marquee__track { animation-play-state: paused; }
+
+/* Lite reveal system: used on perf-lite (GSAP never loads) and as the
+   fallback when the CDN fails. The .lite-anim class is only added by JS
+   *after* confirming IO support, so content can never be stuck hidden. */
+.lite-anim .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.5s ease, transform 0.5s var(--ease-out);
+}
+.lite-anim .reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Skip rendering offscreen sections entirely on lite devices.
+   (Only safe without ScrollTrigger, which needs real layout sizes.) */
+.perf-lite .section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+/* =========================================================================
+   SMOOTH INNER SCROLLING
+   Every scrollable panel gets a slim, glass-matched scrollbar, contained
+   overscroll (no scroll chaining to the page behind), and smooth
+   programmatic scrolling. The page's own scrollbar stays hidden by design.
+   ========================================================================= */
+.ai-chat-messages,
+.project-drawer__body,
+.guides-drawer__panel,
+.reader-content,
+.reader-sidebar,
+.cli-terminal__body,
+.cli-terminal__output,
+.nav__dropdown {
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;                                /* Firefox */
+  scrollbar-color: rgba(100, 116, 139, 0.4) transparent;
+}
+/* The horizontally-scrolling mobile nav keeps its invisible scrollbar,
+   but gets the same contained, smooth behavior. */
+.nav__links {
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+.ai-chat-messages::-webkit-scrollbar,
+.project-drawer__body::-webkit-scrollbar,
+.guides-drawer__panel::-webkit-scrollbar,
+.reader-content::-webkit-scrollbar,
+.reader-sidebar::-webkit-scrollbar,
+.cli-terminal__body::-webkit-scrollbar,
+.cli-terminal__output::-webkit-scrollbar,
+.nav__dropdown::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.ai-chat-messages::-webkit-scrollbar-track,
+.project-drawer__body::-webkit-scrollbar-track,
+.guides-drawer__panel::-webkit-scrollbar-track,
+.reader-content::-webkit-scrollbar-track,
+.reader-sidebar::-webkit-scrollbar-track,
+.cli-terminal__body::-webkit-scrollbar-track,
+.cli-terminal__output::-webkit-scrollbar-track,
+.nav__dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ai-chat-messages::-webkit-scrollbar-thumb,
+.project-drawer__body::-webkit-scrollbar-thumb,
+.guides-drawer__panel::-webkit-scrollbar-thumb,
+.reader-content::-webkit-scrollbar-thumb,
+.reader-sidebar::-webkit-scrollbar-thumb,
+.cli-terminal__body::-webkit-scrollbar-thumb,
+.cli-terminal__output::-webkit-scrollbar-thumb,
+.nav__dropdown::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.35);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.ai-chat-messages::-webkit-scrollbar-thumb:hover,
+.project-drawer__body::-webkit-scrollbar-thumb:hover,
+.guides-drawer__panel::-webkit-scrollbar-thumb:hover,
+.reader-content::-webkit-scrollbar-thumb:hover,
+.reader-sidebar::-webkit-scrollbar-thumb:hover,
+.cli-terminal__body::-webkit-scrollbar-thumb:hover,
+.cli-terminal__output::-webkit-scrollbar-thumb:hover,
+.nav__dropdown::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(100, 116, 139, 0.55);
+}

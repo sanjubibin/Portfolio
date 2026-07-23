@@ -11,33 +11,69 @@
   <meta property="og:url" content="https://sanjubibin.github.io">
   <meta property="og:title" content="Sanju Antony — Backend &amp; AI Engineer">
   <meta property="og:description" content="Professional portfolio of Sanju Antony. Specialized in scalable backend microservices, generative AI integrations, and Web3 smart contracts.">
-  <meta property="og:image" content="og-image.png">
+  <meta property="og:image" content="https://sanjubibin.github.io/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://sanjubibin.github.io">
   <meta name="twitter:title" content="Sanju Antony — Backend &amp; AI Engineer">
   <meta name="twitter:description" content="Professional portfolio of Sanju Antony. Specialized in scalable backend microservices, generative AI integrations, and Web3 smart contracts.">
-  <meta name="twitter:image" content="og-image.png">
+  <meta name="twitter:image" content="https://sanjubibin.github.io/og-image.jpg">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Boot script. The site renders efficiently everywhere by design;
+       "perf-lite" (low-end / data-saver / reduced-motion devices)
+       additionally skips the GSAP download and offscreen rendering. -->
+  <script>
+  (function () {
+    var doc = document.documentElement, nav = navigator;
+    var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var lite = reduced ||
+      (nav.deviceMemory && nav.deviceMemory <= 4) ||
+      (nav.hardwareConcurrency && nav.hardwareConcurrency <= 4) ||
+      (nav.connection && nav.connection.saveData);
+    window.PERF_LITE = !!lite;
+    if (lite) doc.className += ' perf-lite';
+    // Randomize the ambient hue starting point per visit (spans the full
+    // 320s cycle; referenced by style.css).
+    doc.style.setProperty('--hue-delay', (-(Math.random() * 320)).toFixed(1) + 's');
+    // Capable devices only: fetch the animation engine in parallel with CSS.
+    if (!lite) {
+      var urls = [
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js',
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js',
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js'
+      ];
+      var left = urls.length;
+      window.__gsapReady = new Promise(function (res) {
+        urls.forEach(function (u) {
+          var s = document.createElement('script');
+          s.src = u;
+          s.async = false; /* preserve execution order */
+          s.onload = s.onerror = function () { if (!--left) res(); };
+          document.head.appendChild(s);
+        });
+      });
+    }
+  })();
+  </script>
 
   <!-- Font imports (Outfit + Fira Code for CLI console) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Ambient background: gradient mesh + drifting blobs + grain -->
+  <!-- Ambient background: static gradient mesh + frozen blobs + dot matrix.
+       Entirely static on every device — rasterized once, zero per-frame cost. -->
   <div class="bg" aria-hidden="true">
     <div class="bg__base"></div>
     <div class="bg__blob bg__blob--1"></div>
     <div class="bg__blob bg__blob--2"></div>
-    <div class="bg__blob bg__blob--3"></div>
-    <div class="bg__blob bg__blob--4"></div>
-    <canvas class="bg__canvas-dots" id="bg-canvas-dots"></canvas>
-    <div class="bg__grain"></div>
   </div>
 
   <!-- Floating glass navbar -->
@@ -64,81 +100,6 @@
     <div class="nav__indicator" id="nav-indicator" aria-hidden="true"></div>
   </header>
 
-  <!-- Pinned visual scene column (right-side) -->
-  <div class="scrolly__scene-col" id="scrollytelling-scene-column" aria-hidden="true">
-    <div class="scrolly__scene-inner">
-      <!-- SVG Synapse Core morphing visualization -->
-      <svg id="synapse-core-svg" class="synapse-core-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <radialGradient id="core-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="hsl(var(--h-accent))" stop-opacity="0.5"/>
-            <stop offset="100%" stop-color="hsl(var(--h-violet))" stop-opacity="0"/>
-          </radialGradient>
-          <linearGradient id="layer-border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="rgba(255,255,255,0.7)"/>
-            <stop offset="100%" stop-color="rgba(255,255,255,0.15)"/>
-          </linearGradient>
-        </defs>
-        
-        <!-- Outer orbital ring -->
-        <circle id="core-orbit" class="core-orbit" cx="50" cy="50" r="38" stroke="hsl(var(--h-accent) / 0.25)" stroke-width="1.5" stroke-dasharray="4 4" />
-        
-        <!-- Glowing core back layer -->
-        <circle id="core-glow-circle" cx="50" cy="50" r="30" fill="url(#core-glow)" />
-
-        <!-- Dynamic SVG Shapes representing Platform Modules (Scene 2 Disks) -->
-        <!-- Top Disk (AI Layer) -->
-        <g id="layer-ai" class="core-layer">
-          <ellipse class="core-layer__disk" cx="50" cy="32" rx="22" ry="8" fill="rgba(255, 255, 255, 0.45)" stroke="url(#layer-border-grad)" stroke-width="1.5" />
-          <circle class="core-layer__node" cx="50" cy="32" r="2.5" fill="hsl(var(--h-accent))" />
-          <text class="core-layer__text" x="50" y="34.5" text-anchor="middle" font-size="2.2" fill="var(--ink-hi)" font-family="var(--font-code)" font-weight="600">AI AGENT ENGINE</text>
-        </g>
-
-        <!-- Middle Disk (Backend APIs) -->
-        <g id="layer-backend" class="core-layer">
-          <ellipse class="core-layer__disk" cx="50" cy="50" rx="22" ry="8" fill="rgba(255, 255, 255, 0.45)" stroke="url(#layer-border-grad)" stroke-width="1.5" />
-          <circle class="core-layer__node" cx="50" cy="50" r="2.5" fill="hsl(var(--h-blue))" />
-          <text class="core-layer__text" x="50" y="52.5" text-anchor="middle" font-size="2.2" fill="var(--ink-hi)" font-family="var(--font-code)" font-weight="600">FASTAPI RUNTIME</text>
-        </g>
-
-        <!-- Bottom Disk (Web3 Smart Contracts) -->
-        <g id="layer-web3" class="core-layer">
-          <ellipse class="core-layer__disk" cx="50" cy="68" rx="22" ry="8" fill="rgba(255, 255, 255, 0.45)" stroke="url(#layer-border-grad)" stroke-width="1.5" />
-          <circle class="core-layer__node" cx="50" cy="68" r="2.5" fill="hsl(var(--h-aqua))" />
-          <text class="core-layer__text" x="50" y="70.5" text-anchor="middle" font-size="2.2" fill="var(--ink-hi)" font-family="var(--font-code)" font-weight="600">SOLIDITY LEDGER</text>
-        </g>
-
-        <!-- Floating packet animation templates (Scene 3 Solutions cartridges) -->
-        <g id="cartridges" class="core-cartridges" opacity="0">
-          <!-- AI Template -->
-          <g id="cartridge-ai" class="cartridge-group">
-            <rect class="cartridge-box" x="14" y="24" width="22" height="12" rx="4" fill="rgba(255,255,255,0.55)" stroke="url(#layer-border-grad)" stroke-width="1.2"/>
-            <text x="25" y="31.5" text-anchor="middle" font-size="1.8" fill="var(--ink-mid)" font-family="var(--font-main)">AI Chat</text>
-          </g>
-          
-          <!-- Web3 Template -->
-          <g id="cartridge-web3" class="cartridge-group">
-            <rect class="cartridge-box" x="14" y="44" width="22" height="12" rx="4" fill="rgba(255,255,255,0.55)" stroke="url(#layer-border-grad)" stroke-width="1.2"/>
-            <text x="25" y="51.5" text-anchor="middle" font-size="1.8" fill="var(--ink-mid)" font-family="var(--font-main)">Web3 Mint</text>
-          </g>
-
-          <!-- Fintech Template -->
-          <g id="cartridge-fintech" class="cartridge-group">
-            <rect class="cartridge-box" x="14" y="64" width="22" height="12" rx="4" fill="rgba(255,255,255,0.55)" stroke="url(#layer-border-grad)" stroke-width="1.2"/>
-            <text x="25" y="71.5" text-anchor="middle" font-size="1.8" fill="var(--ink-mid)" font-family="var(--font-main)">Fintech Sync</text>
-          </g>
-        </g>
-        
-        <!-- Scene 4 Central Timeline linear rail (condensed line) -->
-        <line id="pipeline-rail" x1="50" y1="5" x2="50" y2="95" stroke="hsl(var(--h-accent) / 0.3)" stroke-width="2.5" opacity="0" stroke-linecap="round" />
-        <circle id="pipeline-pulse" cx="50" cy="5" r="3.5" fill="hsl(var(--h-accent))" opacity="0" />
-      </svg>
-      
-      <!-- Floating code blocks/packets rising inside the scene -->
-      <div class="scrolly__packet-canvas" id="scrolly-packet-canvas"></div>
-    </div>
-  </div>
-
   <main id="main">
 
     <!-- Left column containing standard scrolling text contents -->
@@ -154,6 +115,7 @@
             <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Projects</a>
             <a class="btn glass" href="#contact" data-gel data-magnet>Get In Touch</a>
           </div>
+          <p class="hero__proof" id="hero-proof"></p>
         </div>
       </section>
 
@@ -290,10 +252,8 @@
 
   <!-- Content data -->
   <script src="config.js" defer></script>
-  <!-- Animation engine (pinned) -->
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js" defer></script>
+  <!-- Animation engine (GSAP) is injected conditionally by the inline
+       perf-tier script in <head>; low-end devices never download it. -->
   <!-- Site logic -->
   <script src="app.js" defer></script>
   <script src="ai-clone.js" defer></script>
@@ -302,8 +262,6 @@
 
   <!-- Sanju's AI Agent Chat Widget -->
   <button id="ai-chat-toggle" class="glass ai-chat-toggle" aria-label="Open Sanju's AI Agent Chat" data-gel>
-    <div class="ai-chat-toggle__ring ai-chat-toggle__ring--1" aria-hidden="true"></div>
-    <div class="ai-chat-toggle__ring ai-chat-toggle__ring--2" aria-hidden="true"></div>
     <svg viewBox="0 0 24 24" class="ai-chat-toggle__icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       <path d="M12.5 6.5l.3.7.7.3-.7.3-.3.7-.3-.7-.7-.3.7-.3z" fill="currentColor" stroke="none"></path>
@@ -337,7 +295,7 @@
 
     <form id="ai-chat-form" class="ai-chat-form">
       <input type="text" id="ai-chat-input" placeholder="Ask about Sanju's experience, skills, projects..." autocomplete="off" required>
-      <button type="submit" class="btn btn--primary glass btn--sm" id="ai-chat-send" data-gel>Send</button>
+      <button type="submit" class="btn btn--primary glass btn--sm" data-gel>Send</button>
     </form>
   </div>
 
@@ -358,13 +316,13 @@
   <div id="guides-drawer-overlay" class="drawer-overlay" aria-hidden="true"></div>
   <aside id="guides-drawer" class="glass project-drawer" aria-hidden="true">
     <header class="project-drawer__header">
-      <h3 id="guides-drawer-title" class="project-drawer__title">Learning Guides</h3>
+      <h3 class="project-drawer__title">Learning Guides</h3>
       <button id="guides-drawer-close" class="project-drawer__close" aria-label="Close Guides">&times;</button>
     </header>
     <div class="guides-drawer__body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
       <div class="guides-drawer__slider" id="guides-drawer-slider">
         <!-- Level 1: Main Menu -->
-        <div class="guides-drawer__panel" id="guides-panel-l1">
+        <div class="guides-drawer__panel">
           <div class="guides-list">
             <button class="guides-item guides-item--active" id="guides-btn-backend" type="button">
               <div class="guides-item__info">
@@ -390,7 +348,7 @@
           </div>
         </div>
         <!-- Level 2: Backend Submenu -->
-        <div class="guides-drawer__panel" id="guides-panel-l2">
+        <div class="guides-drawer__panel">
           <button class="guides-back-btn" id="guides-back-l2-btn" type="button">← Back to Categories</button>
           <div class="guides-list">
             <button class="guides-item guides-item--active" id="guides-btn-python" type="button">
@@ -432,7 +390,7 @@
         Go Back
       </button>
       <div class="reader-header__title">
-        <h4 id="reader-header-title">Python from Scratch</h4>
+        <h4>Python from Scratch</h4>
         <span id="reader-header-chapter">Chapter 1 of 8</span>
       </div>
       <button id="reader-theme-btn" class="theme-toggle-btn" aria-label="Toggle Theme" type="button">
@@ -535,7 +493,6 @@
       <button type="button" class="btn btn--sm glass warning-modal__close" id="status-warning-close" data-gel>
         Understood
       </button>
-    </div>
   </div>
 
 </body>

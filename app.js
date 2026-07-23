@@ -21,7 +21,10 @@
 
   const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const COARSE = window.matchMedia('(pointer: coarse)').matches;
-  const HAS_GSAP = !!(window.gsap && window.ScrollTrigger && window.ScrollToPlugin);
+  const LITE = !!window.PERF_LITE;
+  // GSAP is injected by the inline <head> script only on capable devices;
+  // this flips to true once the engine has actually loaded (see bottom init).
+  let HAS_GSAP = false;
 
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
@@ -47,17 +50,23 @@
     const badge = $('#hero-badge');
     if (badge) badge.textContent = CONFIG.profile.name;
     $('#hero-title').textContent = CONFIG.profile.title;
-    const sub = $('#hero-sub');
-    const rot = CONFIG.profile.subTitleRotate;
-    if (HAS_GSAP && !REDUCED && rot && rot.prefix && Array.isArray(rot.words) && rot.words.length > 1) {
-      sub.innerHTML = `${esc(rot.prefix)} <span class="rotate-stack" id="rotate-stack">` +
-        rot.words.map((w) => `<span>${esc(w)}</span>`).join('') + '</span>';
-    } else {
-      sub.textContent = CONFIG.profile.subTitle || '';
+    // Always render the static subtitle; the rotating variant is swapped in
+    // by initTaglineRotator() only after the animation engine has loaded.
+    $('#hero-sub').textContent = CONFIG.profile.subTitle || '';
+    const proof = $('#hero-proof');
+    if (proof && Array.isArray(CONFIG.profile.proofLine) && CONFIG.profile.proofLine.length) {
+      proof.innerHTML = CONFIG.profile.proofLine
+        .map((item) => `<span>${esc(item)}</span>`)
+        .join('<span class="hero__proof-dot" aria-hidden="true">·</span>');
     }
   }
 
   function initTaglineRotator() {
+    const rot = CONFIG.profile.subTitleRotate;
+    if (!rot || !rot.prefix || !Array.isArray(rot.words) || rot.words.length < 2) return;
+    const sub = $('#hero-sub');
+    sub.innerHTML = `${esc(rot.prefix)} <span class="rotate-stack" id="rotate-stack">` +
+      rot.words.map((w) => `<span>${esc(w)}</span>`).join('') + '</span>';
     const stack = $('#rotate-stack');
     if (!stack) return;
     const words = $$('span', stack);
@@ -141,15 +150,26 @@
       </button>`).join('');
   }
 
+  // Per-category visual identity for project cards: a 2-letter mark on a
+  // category-colored gradient tile (pure CSS, rides the hue-drift system).
+  const CATEGORY_MARKS = {
+    'AI & Machine Learning': { mark: 'AI', mod: 'ai' },
+    'Blockchain & Web3': { mark: 'W3', mod: 'web3' },
+    'Backend & Cloud': { mark: 'BE', mod: 'backend' }
+  };
+
   function projectCard(p, reveal) {
     const links = [
       p.codeLink ? `<a href="${esc(p.codeLink)}" target="_blank" rel="noopener">View Code →</a>` : '',
       p.liveLink ? `<a href="${esc(p.liveLink)}" target="_blank" rel="noopener">Live Demo →</a>` : ''
     ].join('');
     const techTags = (p.tags || []).map(t => t.toLowerCase()).join(',');
+    const cat = CATEGORY_MARKS[p.category] ||
+      { mark: initials(p.category || p.title), mod: 'backend' };
     return `
       <article class="glass card project-card${reveal ? ' reveal' : ''}" data-tech-tags="${esc(techTags)}" data-tilt>
         <div class="project-card__head">
+          <span class="project-card__mark project-card__mark--${cat.mod}" aria-hidden="true">${esc(cat.mark)}</span>
           <h3>${esc(p.title)}</h3>
           <span class="badge">${esc(p.category)}</span>
         </div>
@@ -273,8 +293,8 @@
     if (HAS_GSAP && !REDUCED) {
       gsap.to(window, {
         scrollTo: { y: target, offsetY: 88 },
-        duration: immediate ? 0 : 0.9,
-        ease: 'power3.inOut',
+        duration: immediate ? 0 : 0.45,
+        ease: 'power2.out',
         overwrite: 'auto'
       });
     } else {
@@ -536,12 +556,12 @@
 
       if (HAS_GSAP && !REDUCED) {
         gsap.to(grid, {
-          autoAlpha: 0, y: 10, duration: 0.2, ease: 'power1.in',
+          autoAlpha: 0, y: 6, duration: 0.1, ease: 'power1.in',
           onComplete: () => {
             renderProjects(cat, false);
             gsap.set(grid, { autoAlpha: 1, y: 0 });
             gsap.from(grid.children, {
-              autoAlpha: 0, y: 16, duration: 0.45, stagger: 0.06,
+              autoAlpha: 0, y: 10, duration: 0.25, stagger: 0.03,
               ease: 'power2.out', clearProps: 'all'
             });
             ScrollTrigger.refresh();
@@ -600,6 +620,7 @@
         state.magnetEl = magnet;
         state.magnetRect = magnet.getBoundingClientRect();
       }
+      if (tilt || magnet) wake();
     });
 
     document.addEventListener('pointerout', (e) => {
@@ -617,6 +638,16 @@
         state.magnetRect = null;
       }
     });
+
+    // rAF loop only runs while something is actually hovered — it sleeps
+    // (zero CPU) the rest of the time instead of spinning forever.
+    let running = false;
+    function wake() {
+      if (!running) {
+        running = true;
+        requestAnimationFrame(frame);
+      }
+    }
 
     function frame() {
       if (state.tiltEl && state.rect) {
@@ -638,47 +669,52 @@
         gsap.set(state.magnetEl, { x: dx, y: dy });
       }
 
-      requestAnimationFrame(frame);
+      if (state.tiltEl || state.magnetEl) {
+        requestAnimationFrame(frame);
+      } else {
+        running = false;
+      }
     }
-    requestAnimationFrame(frame);
   }
 
   // ============================================================ SCROLL FX
-  function addIdleFloat(els) {
-    els.forEach((el, i) => {
-      if (!el.classList || !el.classList.contains('glass')) return;
-      gsap.to(el, {
-        y: -7, duration: 2.6 + (i % 3) * 0.5, ease: 'sine.inOut',
-        yoyo: true, repeat: -1, delay: (i % 4) * 0.35
-      });
-    });
-  }
-
   function initScrollFX() {
-    // Hero intro. clearProps at the end so the CSS orb-crossfade rule
-    // ([data-orb="on"] .hero__title { opacity: 0 }) can take effect.
-    const introSel = '.hero__badge, .hero__title, .hero__sub, .hero__cta .btn';
-    const tl = gsap.timeline({
-      delay: 0.15,
-      onComplete: () => gsap.set(introSel, { clearProps: 'all' })
-    });
-    tl.from('.hero__badge', { y: 26, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
-      .from('.hero__title', { y: 34, autoAlpha: 0, duration: 1, ease: 'power3.out' }, '-=0.62')
-      .from('.hero__sub', { y: 24, autoAlpha: 0, duration: 0.9, ease: 'power3.out' }, '-=0.7')
-      .from('.hero__cta .btn', { y: 20, autoAlpha: 0, duration: 0.8, stagger: 0.09, ease: 'power3.out' }, '-=0.62');
+    // Hero intro.
+    // Skipped when the engine arrived late (slow network): the hero is
+    // already visible by then and re-hiding it would flash.
+    if (performance.now() < 2000) {
+      const introSel = '.hero__badge, .hero__title, .hero__sub, .hero__cta .btn, .hero__proof';
+      const tl = gsap.timeline({
+        delay: 0.15,
+        onComplete: () => gsap.set(introSel, { clearProps: 'all' })
+      });
+      tl.from('.hero__badge', { y: 26, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
+        .from('.hero__title', { y: 34, autoAlpha: 0, duration: 1, ease: 'power3.out' }, '-=0.62')
+        .from('.hero__sub', { y: 24, autoAlpha: 0, duration: 0.9, ease: 'power3.out' }, '-=0.7')
+        .from('.hero__cta .btn', { y: 20, autoAlpha: 0, duration: 0.8, stagger: 0.09, ease: 'power3.out' }, '-=0.62')
+        .from('.hero__proof', { y: 14, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, '-=0.5');
+    }
 
-    // Float-up + blur-in reveals. Hidden state applied here (JS only).
-    const reveals = $$('.reveal');
-    gsap.set(reveals, { autoAlpha: 0, y: 44, filter: 'blur(12px)' });
+    // Float-up reveals. Hidden state applied here (JS only), and only to
+    // elements still below the fold — anything already on screen stays
+    // visible so late engine load never blanks rendered content.
+    // The blur-in flourish is desktop-only: animating filter re-rasterizes
+    // every frame, which is exactly what stutters on phones.
+    // Reveals animate transform + opacity only (no filter): identical on
+    // every device, and pure compositor work.
+    const reveals = $$('.reveal').filter((el) =>
+      el.getBoundingClientRect().top > window.innerHeight * 0.9);
+    gsap.set(reveals, { autoAlpha: 0, y: 16 });
     ScrollTrigger.batch(reveals, {
-      start: 'top 85%',
+      // Fire well BELOW the viewport (120% = one-fifth of a screen early):
+      // at fast scroll speeds the animation has already finished by the
+      // time the element arrives, so content never appears to "load" late.
+      start: 'top 120%',
       once: true,
       onEnter: (batch) => gsap.to(batch, {
-        autoAlpha: 1, y: 0, filter: 'blur(0px)',
-        duration: 0.9, ease: 'back.out(1.4)', stagger: 0.08,
-        clearProps: 'filter',
+        autoAlpha: 1, y: 0,
+        duration: 0.35, ease: 'power2.out', stagger: 0.035,
         onComplete: () => {
-          if (COARSE) addIdleFloat(batch);
           batch.forEach((el) => {
             if (el.classList.contains('glass')) {
               el.classList.add('reveal-shine');
@@ -694,11 +730,11 @@
       const pills = $$('.pill', group);
       ScrollTrigger.create({
         trigger: group,
-        start: 'top 85%',
+        start: 'top 115%',
         once: true,
         onEnter: () => gsap.from(pills, {
-          scale: 0.6, autoAlpha: 0, duration: 0.5,
-          ease: 'back.out(1.8)', stagger: 0.045, clearProps: 'all'
+          scale: 0.8, autoAlpha: 0, duration: 0.28,
+          ease: 'power2.out', stagger: 0.02, clearProps: 'all'
         })
       });
     });
@@ -736,7 +772,7 @@
       $$('.xp-dot').forEach((dot) => {
         gsap.from(dot, {
           scale: 0, duration: 0.6, ease: 'back.out(2.5)',
-          scrollTrigger: { trigger: dot.closest('.xp-entry'), start: 'top 82%', once: true }
+          scrollTrigger: { trigger: dot.closest('.xp-entry'), start: 'top 105%', once: true }
         });
       });
     }
@@ -750,7 +786,6 @@
 
   // -------------------------------------------------------- audio synthesizer
   let audioCtx = null;
-  let isAudioMuted = false;
 
   function initAudioContext() {
     if (!audioCtx) {
@@ -762,7 +797,6 @@
   }
 
   function playSynthSound(freqStart, freqEnd, duration, type = 'sine', volume = 0.06) {
-    if (isAudioMuted) return;
     try {
       initAudioContext();
       const osc = audioCtx.createOscillator();
@@ -791,14 +825,12 @@
   function initAudioEvents() {
     // Hover sound registers
     document.addEventListener('pointerover', (e) => {
-      if (isAudioMuted) return;
       const target = e.target.closest('a, button, .chip, .pill, .social');
       if (target) playTick();
     });
 
     // Press sound registers
     document.addEventListener('pointerdown', (e) => {
-      if (isAudioMuted) return;
       const target = e.target.closest('[data-gel], button, .chip, #ai-chat-toggle, #ai-chat-close');
       if (target) playClick();
     });
@@ -835,57 +867,19 @@
     });
   }
 
-  // Handle window resizing to keep indicator aligned and marquee filled
+  // Handle window resizing to keep indicator aligned and marquee filled.
+  // Debounced: resize fires continuously (mobile URL-bar show/hide included)
+  // and this work forces layout reads.
+  let resizeTimer = 0;
   window.addEventListener('resize', () => {
-    if (currentActiveLink) {
-      updateNavIndicator(currentActiveLink);
-    }
-    initMarqueeDupes();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (currentActiveLink) {
+        updateNavIndicator(currentActiveLink);
+      }
+      initMarqueeDupes();
+    }, 150);
   });
-
-  // ------------------------------------------------------- context highlights
-  function initContextHighlights() {
-    const skillsGroup = $('#skills-groups');
-    if (!skillsGroup) return;
-
-    skillsGroup.addEventListener('pointerover', (e) => {
-      const pill = e.target.closest('.pill');
-      if (!pill) return;
-
-      const tech = pill.dataset.tech;
-      if (!tech) return;
-
-      const projectCards = $$('.project-card');
-      const xpItems = $$('.xp-item');
-
-      projectCards.forEach((card) => {
-        const tags = (card.dataset.techTags || '').split(',');
-        if (tags.includes(tech)) {
-          card.classList.add('context-highlight');
-        } else {
-          card.classList.add('context-fade');
-        }
-      });
-
-      xpItems.forEach((card) => {
-        const descText = card.textContent.toLowerCase();
-        if (descText.includes(tech)) {
-          card.classList.add('context-highlight');
-        } else {
-          card.classList.add('context-fade');
-        }
-      });
-    });
-
-    skillsGroup.addEventListener('pointerout', (e) => {
-      const pill = e.target.closest('.pill');
-      if (!pill) return;
-
-      $$('.project-card, .xp-item').forEach((card) => {
-        card.classList.remove('context-highlight', 'context-fade');
-      });
-    });
-  }
 
   // ------------------------------------------------------------- project drawer
   function initProjectDrawer() {
@@ -1968,6 +1962,45 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     });
   }
 
+  // ---------------------------------------------- lite reveal system
+  // Used on perf-lite devices (GSAP never loads there) and as the fallback
+  // when the GSAP CDN fails: an IntersectionObserver plus CSS transitions
+  // (see .lite-anim in style.css) keeps the scroll reveals alive. The
+  // .lite-anim class that hides .reveal elements is only added here, after
+  // IO support is confirmed, so content can never be stuck invisible.
+  function initLiteReveals() {
+    if (!('IntersectionObserver' in window) || REDUCED) return;
+    document.documentElement.classList.add('lite-anim');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) {
+          en.target.classList.add('is-in');
+          io.unobserve(en.target);
+        }
+      });
+    // Positive bottom margin = observe one-third of a viewport BELOW the
+    // fold, so reveals fire before elements scroll into sight and fast
+    // scrolling never outruns them.
+    }, { rootMargin: '0px 0px 35% 0px' });
+    $$('.reveal').forEach((el) => {
+      if (el.getBoundingClientRect().top < window.innerHeight * 0.94) {
+        el.classList.add('is-in'); // already on screen — show instantly
+      } else {
+        io.observe(el);
+      }
+    });
+  }
+
+  // Pause the marquee animation while it is scrolled out of view (all tiers).
+  function initMarqueeAutoPause() {
+    const marquee = $('.tech-marquee');
+    if (!marquee || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([entry]) => {
+      marquee.classList.toggle('is-offscreen', !entry.isIntersecting);
+    });
+    io.observe(marquee);
+  }
+
   // ================================================================= INIT
   renderHero();
   initMarqueeDupes();
@@ -1991,224 +2024,29 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
   initGuidesDrawer();
   initResumeModal();
   initStatusWarningModal();
+  initMarqueeAutoPause();
 
-  if (HAS_GSAP) {
-    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
-    if (!REDUCED) {
+  // Enhancement layer: waits for the conditionally-injected GSAP bundle.
+  // On perf-lite devices (no bundle) or if the CDN fails, the site stays on
+  // the cheap CSS-only path — fully readable and interactive either way.
+  if (!LITE && window.__gsapReady) {
+    window.__gsapReady.then(() => {
+      if (!(window.gsap && window.ScrollTrigger && window.ScrollToPlugin)) {
+        initLiteReveals();
+        return;
+      }
+      HAS_GSAP = true;
+      gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
+      if (REDUCED) return;
       initGelButtons();
       initScrollFX();
       initTaglineRotator();
-      initScrollytelling();
-      initCanvasDots();
+      // Tilt/magnet effects need a hovering cursor — pointless on touch.
       if (!COARSE) initPointerFX();
-    }
-  }
-
-  // ========================================================= SCROLLYTELLING ENGINE
-  function initScrollytelling() {
-    if (!HAS_GSAP || REDUCED) return;
-    
-    const svg = $('#synapse-core-svg');
-    if (!svg) return;
-    
-    // Set initial states for Scene 1 (Hero sphere)
-    gsap.set(['#layer-ai', '#layer-web3'], { y: 0, opacity: 0.7 });
-    gsap.set('#layer-backend', { opacity: 1 });
-    gsap.set(['.core-layer__text', '#cartridges', '#pipeline-rail', '#pipeline-pulse'], { opacity: 0 });
-
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: '#main',
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: 0.6,
-        invalidateOnRefresh: true
-      }
     });
-
-    // ---- Scene 1 -> Scene 2 (Scroll to features): Disks split vertically
-    tl.to('#layer-ai', { y: -18, duration: 2, ease: 'power2.out' }, 0)
-      .to('#layer-web3', { y: 18, duration: 2, ease: 'power2.out' }, 0)
-      .to('.core-layer__text', { opacity: 0.8, duration: 1.5, stagger: 0.1 }, 0.5)
-
-    // ---- Scene 2 -> Scene 3 (Scroll to solutions): Rotate and slide cartridges
-    tl.to(['#layer-ai', '#layer-web3', '#layer-backend'], {
-      y: 0,
-      scaleX: 0.8,
-      scaleY: 0.3,
-      opacity: 0.4,
-      duration: 2,
-      ease: 'power2.inOut'
-    }, 3)
-      .to('.core-layer__text', { opacity: 0, duration: 1 }, 3)
-      .to('#cartridges', { opacity: 1, duration: 1.5 }, 3.5)
-      .fromTo('#cartridge-ai', { x: 50 }, { x: 0, duration: 1.8, ease: 'back.out(1.2)' }, 3.8)
-      .fromTo('#cartridge-web3', { x: 50 }, { x: 0, duration: 1.8, ease: 'back.out(1.2)' }, 4.1)
-      .fromTo('#cartridge-fintech', { x: 50 }, { x: 0, duration: 1.8, ease: 'back.out(1.2)' }, 4.4)
-
-    // ---- Scene 3 -> Scene 4 (Scroll to timeline): Rails and timeline pulse
-    tl.to('#cartridges', { opacity: 0, duration: 1.5 }, 6)
-      .to('#core-glow-circle', { scale: 0.3, opacity: 0.1, duration: 1.5 }, 6)
-      .to('#pipeline-rail', { opacity: 1, duration: 1 }, 6.5)
-      .to('#pipeline-pulse', { opacity: 1, duration: 0.5 }, 6.8)
-      .to('#pipeline-pulse', { attr: { cy: 95 }, duration: 4, ease: 'none' }, 7);
-
-    // ---- Floating Data Packets rising inside the pinned scene
-    const canvas = $('#scrolly-packet-canvas');
-    if (!canvas) return;
-
-    const terms = CONFIG.backgroundPackets || ['data', 'exec', 'mcp', 'tx:hash', 'call_llm()', 'solidity:mint', 'GET /api', '200 OK', 'block:44', 'docker:run', 'FastAPI', 'Node.js', 'ChromaDB', 'AWS:S3'];
-    
-    function spawnPacket() {
-      if (document.hidden) return;
-      const el = document.createElement('div');
-      el.className = 'scrolly-packet';
-      el.textContent = terms[Math.floor(Math.random() * terms.length)];
-      
-      const left = 15 + Math.random() * 70;
-      el.style.left = `${left}%`;
-      el.style.bottom = '-30px';
-      canvas.appendChild(el);
-
-      const duration = 8 + Math.random() * 8;
-      const xDrift = (Math.random() - 0.5) * 40;
-
-      gsap.to(el, {
-        y: -innerHeight - 50,
-        x: xDrift,
-        opacity: 0.85,
-        duration: duration,
-        ease: 'none',
-        onComplete: () => {
-          el.remove();
-          spawnPacket();
-        }
-      });
-    }
-
-    const maxPackets = COARSE ? 2 : 5;
-    for (let i = 0; i < maxPackets; i++) {
-      setTimeout(spawnPacket, i * 1800);
-    }
+  } else {
+    initLiteReveals();
   }
 
-  // ========================================================= BACKGROUND INTERACTIVE CANVAS DOTS
-  function initCanvasDots() {
-    const canvas = $('#bg-canvas-dots');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    let dots = [];
-    let spacing = 22; // Very compact dot grid spacing
-    
-    const state = {
-      mx: -1000, my: -1000,
-      active: false
-    };
-    
-    function resize() {
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
-      ctx.scale(dpr, dpr);
-      
-      // Build/Rebuild the coordinate grid
-      dots = [];
-      const cols = Math.ceil(window.innerWidth / spacing) + 1;
-      const rows = Math.ceil(window.innerHeight / spacing) + 1;
-      
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-          const bx = c * spacing;
-          const by = r * spacing;
-          dots.push({
-            x: bx, y: by,
-            baseX: bx, baseY: by,
-            vx: 0, vy: 0
-          });
-        }
-      }
-    }
-    
-    window.addEventListener('resize', resize, { passive: true });
-    
-    window.addEventListener('pointermove', (e) => {
-      state.mx = e.clientX;
-      state.my = e.clientY;
-      state.active = true;
-    }, { passive: true });
-    
-    document.addEventListener('pointerleave', () => {
-      state.active = false;
-      state.mx = -1000;
-      state.my = -1000;
-    });
-    
-    resize();
-    
-    const forceRadius = 110;
-    const forceRadiusSq = forceRadius * forceRadius;
-    
-    function loop() {
-      if (document.hidden) {
-        requestAnimationFrame(loop);
-        return;
-      }
-      
-      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-      
-      const time = Date.now() * 0.04;
-      
-      for (let i = 0; i < dots.length; i++) {
-        const dot = dots[i];
-        
-        const dx = state.mx - dot.x;
-        const dy = state.my - dot.y;
-        const distSq = dx * dx + dy * dy;
-        
-        let force = 0;
-        let angle = 0;
-        let r = 0.9;
-        let color = 'rgba(15, 23, 42, 0.16)';
-        
-        // Repulsion physics inside the force bubble
-        if (state.active && distSq < forceRadiusSq) {
-          const dist = Math.sqrt(distSq);
-          force = (forceRadius - dist) / forceRadius;
-          angle = Math.atan2(dy, dx);
-          
-          // Push away from cursor
-          dot.vx -= Math.cos(angle) * force * 1.6;
-          dot.vy -= Math.sin(angle) * force * 1.6;
-          
-          // Shifting rainbow gradient color for active dots
-          const hue = (dot.baseX + dot.baseY + time) % 360;
-          color = `hsla(${hue}, 85%, 55%, ${0.22 + force * 0.65})`;
-          r = 0.9 + force * 1.4;
-        } else {
-          // Standard dark-slate background dots
-          color = 'rgba(15, 23, 42, 0.16)';
-          r = 0.9;
-        }
-        
-        // Spring return forces to snap back to base anchors
-        const accelX = (dot.baseX - dot.x) * 0.08;
-        const accelY = (dot.baseY - dot.y) * 0.08;
-        dot.vx = (dot.vx + accelX) * 0.80;
-        dot.vy = (dot.vy + accelY) * 0.80;
-        
-        dot.x += dot.vx;
-        dot.y += dot.vy;
-        
-        ctx.beginPath();
-        ctx.arc(dot.x, dot.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = color;
-        ctx.fill();
-      }
-      
-      requestAnimationFrame(loop);
-    }
-    
-    requestAnimationFrame(loop);
-  }
+
 })();
