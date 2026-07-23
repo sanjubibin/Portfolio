@@ -5,12 +5,6 @@
 // =========================================================================
 
 const CONFIG = {
-  // Floating background data packet terms (seen floating up in the scrollytelling scene)
-  backgroundPackets: [
-    'data', 'exec', 'mcp', 'tx:hash', 'call_llm()', 
-    'solidity:mint', 'GET /api', '200 OK', 'block:44', 
-    'docker:run', 'FastAPI', 'Node.js', 'ChromaDB', 'AWS:S3'
-  ],
   // Terminal prompt customization (username@hostname:~$)
   terminalPrompt: {
     username: 'visitor',
@@ -25,8 +19,11 @@ const CONFIG = {
       prefix: "Building intelligent systems across",
       words: ["the backend", "AI & LLMs", "Web3 & smart contracts"]
     },
+    // Quiet proof line under the hero CTAs — concrete results, not adjectives.
+    proofLine: ["Custom MCP servers", "Audited Solidity contracts", "35% faster APIs"],
     // Optional portrait image. Leave empty to show the initials monogram.
-    avatarUrl: "Files/profile.png",
+    // (profile.jpg is the 320px web-optimized copy; profile.png is the original)
+    avatarUrl: "Files/profile.jpg",
     location: "Tamil Nadu, India",
     about: "I am a backend developer transitioning into full-stack engineering, with a strong foundation in building scalable server-side systems and a passion for AI-driven development. I specialize in leveraging advanced LLM chatbots, Claude Code, and antigravity to optimize workflows and construct intelligent, interactive user experiences.",
     email: "sanjubibin44@gmail.com",
@@ -213,6 +210,11 @@ const CONFIG = {
         submenu: [
           { title: "🐍 Python from Scratch", url: "blog/python-scratch/index.html", description: "A step-by-step programming intro for non-CS engineers." }
         ]
+      },
+      {
+        title: "🔌 Building a Custom MCP Server",
+        url: "blog/building-custom-mcp-server/index.html",
+        description: "Production walkthrough: tool routing, consent gates, and SSE streaming."
       },
       {
         title: "📰 Articles & Tech News",

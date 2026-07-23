@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building a Custom MCP Server | Sanju Antony Blog</title>
+  <meta name="description" content="How I built a custom Model Context Protocol (MCP) server in Node.js: tool routing, consent-based security, and SSE streaming that cut first-token latency by 45%.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../blog-article.css">
+</head>
+<body>
+  <article class="article-container" style="max-width: 800px; margin: 60px auto;">
+    <div class="header-actions">
+      <a href="../../index.html" class="back-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Back to Portfolio
+      </a>
+      <button id="theme-toggle-btn" class="theme-toggle-btn" aria-label="Toggle Theme">
+        <span class="icon-dark">🌙</span>
+        <span class="icon-light">☀️</span>
+      </button>
+    </div>
+
+    <h1>Building a Custom MCP Server: Giving an LLM Safe Hands</h1>
+
+    <div class="metadata">
+      <span>📅 July 2026</span>
+      <span>⏱️ 8 min read</span>
+      <span>🏷️ MCP · Node.js · LLMs</span>
+    </div>
+
+    <div class="content">
+      <p>Large language models are excellent at reasoning and terrible at knowing things they were never told. Every production chatbot eventually hits the same wall: the model needs live data — a user's account state, a document, a database row — and pasting everything into the prompt is slow, expensive, and insecure. The <strong>Model Context Protocol (MCP)</strong> is the emerging standard that solves this properly: instead of stuffing context in, you hand the model a set of <em>tools</em> it can call on demand, through a server you control.</p>
+
+      <p>At Ionixx I built a custom MCP server in Node.js to power an AI chatbot on Anthropic's models. This article walks through the architecture, the consent layer that made it production-safe, and the streaming decision that cut our first-token latency by 45%.</p>
+
+      <h2>What MCP Actually Is</h2>
+      <p>Strip away the buzz and MCP is a small JSON-RPC contract between two parties:</p>
+      <ul>
+        <li>An <strong>MCP client</strong> — usually the app hosting the LLM conversation — that discovers and invokes tools.</li>
+        <li>An <strong>MCP server</strong> — your process — that advertises tools, executes them, and returns structured results.</li>
+      </ul>
+      <p>The whole discovery handshake is two methods. The client asks what exists:</p>
+      <pre>// client → server
+{ "jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {} }
+
+// server → client
+{ "jsonrpc": "2.0", "id": 1, "result": { "tools": [
+  { "name": "get_account_summary",
+    "description": "Returns the signed-in user's balances and positions",
+    "inputSchema": { "type": "object", "properties": {
+      "currency": { "type": "string", "enum": ["USD", "INR"] } } } }
+] } }</pre>
+      <p>…and later asks to run one:</p>
+      <pre>{ "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+  "params": { "name": "get_account_summary",
+              "arguments": { "currency": "INR" } } }</pre>
+      <p>That's the core of it. The power isn't in the protocol's complexity — it's in the separation of concerns. The model never touches your database, your filesystem, or your API keys. It only ever sees tool names, descriptions, and results you chose to return.</p>
+
+      <h2>The Architecture</h2>
+      <pre>Web UI  ⇄  SSE stream  ⇄  Node.js MCP server (Express)
+                               │  tool registry + consent gate
+                               ├── Anthropic API (Claude)
+                               ├── Postgres (user data)
+                               └── Web search / code exec sandbox</pre>
+      <p>Three design rules shaped everything:</p>
+      <ul>
+        <li><strong>The server owns the tool registry.</strong> Tools are declared in one place with a JSON Schema for their inputs. Schema validation happens <em>server-side before execution</em> — never trust that the model produced well-formed arguments, because roughly 1 call in 50 it won't.</li>
+        <li><strong>Every tool is a pure function of (arguments, session).</strong> The session — who is logged in, what they've consented to — comes from the authenticated transport, never from the model's arguments. If the model asks for another user's data, there is structurally no way to express that request.</li>
+        <li><strong>Results are structured, not prose.</strong> Tools return compact JSON, and the model does the phrasing. This keeps token usage predictable and lets the same tools serve multiple prompts.</li>
+      </ul>
+
+      <h2>The Consent Gate</h2>
+      <p>The part I'd call genuinely novel in our build: <strong>consent-based context</strong>. Financial data was involved, so "the model can silently read your accounts" was never acceptable. Every tool in the registry carries a sensitivity level, and the gate sits between <code>tools/call</code> and execution:</p>
+      <pre>const TOOL_POLICY = {
+  get_market_news:      { consent: "none"     },  // public data
+  get_account_summary:  { consent: "session"  },  // ask once per session
+  execute_transfer_sim: { consent: "explicit" }   // ask every single time
+};
+
+async function callTool(name, args, session) {
+  const policy = TOOL_POLICY[name];
+  if (policy.consent !== "none" && !session.hasConsent(name, policy.consent)) {
+    // Pause the tool call and surface a consent prompt in the UI.
+    // The model receives a structured "consent_pending" result —
+    // it knows to tell the user why it's waiting.
+    return { status: "consent_pending", tool: name };
+  }
+  validate(TOOL_SCHEMAS[name], args);   // throws on bad input
+  return await TOOL_HANDLERS[name](args, session);
+}</pre>
+      <p>Two details made this work in practice. First, the consent prompt is rendered by the <em>application UI</em>, not written by the model — users approve a fixed, auditable sentence, not whatever the LLM decided to say. Second, the model receives the <code>consent_pending</code> status as a first-class result, so it responds naturally ("I've requested access to your account summary — approve it and I'll continue") instead of hallucinating an answer it never fetched.</p>
+
+      <h2>Streaming: The 45% Win</h2>
+      <p>Our first version buffered the whole model response server-side, then returned it in one JSON payload. Median time-to-first-word: about 4 seconds. Users read that as "broken."</p>
+      <p>The fix was <strong>Server-Sent Events</strong> end-to-end: Anthropic's streaming API already emits tokens as they're generated, so the server's job is just to relay deltas the moment they arrive:</p>
+      <pre>app.get("/chat/stream", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+
+  const stream = await anthropic.messages.stream({
+    model: "claude-sonnet-4-5",
+    max_tokens: 1024,
+    tools: mcpToolsToAnthropicFormat(registry),
+    messages: history
+  });
+
+  stream.on("text", (delta) => {
+    res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+  });
+  stream.on("end", () => res.end());
+});</pre>
+      <p>Why SSE and not WebSockets? Chat is almost entirely server→client; SSE gives you that over plain HTTP with built-in auto-reconnect, no upgrade handshake, and friendlier behavior through proxies and serverless platforms. First visible token dropped from ~4s to ~2.2s — a 45% cut — and perceived speed improved even more than the number suggests, because a moving cursor <em>feels</em> instant.</p>
+
+      <h2>Lessons Worth Stealing</h2>
+      <ul>
+        <li><strong>Tool descriptions are prompts.</strong> The single highest-leverage optimization was rewriting tool descriptions to say <em>when</em> to use the tool, not just what it does. Call accuracy jumped noticeably with zero code changes.</li>
+        <li><strong>Fewer, broader tools beat many narrow ones.</strong> Fifteen overlapping tools confused the model; consolidating to seven with clear boundaries eliminated most wrong-tool calls.</li>
+        <li><strong>Log every tool call with its arguments and latency.</strong> When the bot misbehaves, the tool-call log tells you in seconds whether the model chose badly, the schema let garbage through, or the backend was just slow.</li>
+        <li><strong>Design for refusal.</strong> A tool that can say "no" cleanly (consent pending, rate-limited, not found) produces a chatbot that fails gracefully. Tools that throw produce a chatbot that lies.</li>
+      </ul>
+
+      <h2>Where This Goes</h2>
+      <p>MCP is doing for AI integrations what REST did for web services: replacing a pile of bespoke glue with a contract both sides can rely on. The interesting engineering has moved up a level — not "how do I connect a model to my data," but "what should a model be <em>allowed</em> to do, and how does a user stay in control." That's a security and product question as much as a protocol one, and it's exactly where backend engineers earn their keep in the AI era.</p>
+      <p>If you're building something similar and want to compare notes — the contact form on my portfolio goes straight to me.</p>
+    </div>
+  </article>
+
+  <script>
+    // Initialize Theme
+    const savedTheme = localStorage.getItem('blog-theme') || 'dark';
+    if (savedTheme === 'light') {
+      document.body.classList.add('light-theme');
+    }
+
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    themeBtn.addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-theme');
+      localStorage.setItem('blog-theme', isLight ? 'light' : 'dark');
+    });
+
+    // Keyboard Shortcut Theme Toggle
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 't') {
+        themeBtn.click();
+      }
+    });
+
+    // Sync theme across tabs
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'blog-theme') {
+        document.body.classList.toggle('light-theme', e.newValue === 'light');
+      }
+    });
+  </script>
+</body>
+</html>

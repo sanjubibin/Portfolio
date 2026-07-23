@@ -11,33 +11,69 @@
   <meta property="og:url" content="https://sanjubibin.github.io">
   <meta property="og:title" content="Sanju Antony — Backend &amp; AI Engineer">
   <meta property="og:description" content="Professional portfolio of Sanju Antony. Specialized in scalable backend microservices, generative AI integrations, and Web3 smart contracts.">
-  <meta property="og:image" content="og-image.png">
+  <meta property="og:image" content="https://sanjubibin.github.io/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
 
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:url" content="https://sanjubibin.github.io">
   <meta name="twitter:title" content="Sanju Antony — Backend &amp; AI Engineer">
   <meta name="twitter:description" content="Professional portfolio of Sanju Antony. Specialized in scalable backend microservices, generative AI integrations, and Web3 smart contracts.">
-  <meta name="twitter:image" content="og-image.png">
+  <meta name="twitter:image" content="https://sanjubibin.github.io/og-image.jpg">
 
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Boot script. The site renders efficiently everywhere by design;
+       "perf-lite" (low-end / data-saver / reduced-motion devices)
+       additionally skips the GSAP download and offscreen rendering. -->
+  <script>
+  (function () {
+    var doc = document.documentElement, nav = navigator;
+    var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var lite = reduced ||
+      (nav.deviceMemory && nav.deviceMemory <= 4) ||
+      (nav.hardwareConcurrency && nav.hardwareConcurrency <= 4) ||
+      (nav.connection && nav.connection.saveData);
+    window.PERF_LITE = !!lite;
+    if (lite) doc.className += ' perf-lite';
+    // Randomize the ambient hue starting point per visit (spans the full
+    // 320s cycle; referenced by style.css).
+    doc.style.setProperty('--hue-delay', (-(Math.random() * 320)).toFixed(1) + 's');
+    // Capable devices only: fetch the animation engine in parallel with CSS.
+    if (!lite) {
+      var urls = [
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js',
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js',
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js'
+      ];
+      var left = urls.length;
+      window.__gsapReady = new Promise(function (res) {
+        urls.forEach(function (u) {
+          var s = document.createElement('script');
+          s.src = u;
+          s.async = false; /* preserve execution order */
+          s.onload = s.onerror = function () { if (!--left) res(); };
+          document.head.appendChild(s);
+        });
+      });
+    }
+  })();
+  </script>
 
   <!-- Font imports (Outfit + Fira Code for CLI console) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Ambient background: gradient mesh + drifting blobs + grain -->
+  <!-- Ambient background: static gradient mesh + frozen blobs + dot matrix.
+       Entirely static on every device — rasterized once, zero per-frame cost. -->
   <div class="bg" aria-hidden="true">
     <div class="bg__base"></div>
     <div class="bg__blob bg__blob--1"></div>
     <div class="bg__blob bg__blob--2"></div>
-    <div class="bg__blob bg__blob--3"></div>
-    <div class="bg__blob bg__blob--4"></div>
-    <canvas class="bg__canvas-dots" id="bg-canvas-dots"></canvas>
-    <div class="bg__grain"></div>
   </div>
 
   <!-- Floating glass navbar -->
@@ -65,6 +101,7 @@
     </div>
     <div class="nav__indicator" id="nav-indicator" aria-hidden="true"></div>
   </header>
+
   <main id="main">
 
     <!-- Left column containing standard scrolling text contents -->
@@ -80,6 +117,7 @@
             <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Projects</a>
             <a class="btn glass" href="#contact" data-gel data-magnet>Get In Touch</a>
           </div>
+          <p class="hero__proof" id="hero-proof"></p>
         </div>
       </section>
 
@@ -216,10 +254,8 @@
 
   <!-- Content data -->
   <script src="config.js" defer></script>
-  <!-- Animation engine (pinned) -->
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js" defer></script>
+  <!-- Animation engine (GSAP) is injected conditionally by the inline
+       perf-tier script in <head>; low-end devices never download it. -->
   <!-- Site logic -->
   <script src="app.js" defer></script>
   <script src="ai-clone.js" defer></script>
@@ -228,8 +264,6 @@
 
   <!-- Sanju's AI Agent Chat Widget -->
   <button id="ai-chat-toggle" class="glass ai-chat-toggle" aria-label="Open Sanju's AI Agent Chat" data-gel>
-    <div class="ai-chat-toggle__ring ai-chat-toggle__ring--1" aria-hidden="true"></div>
-    <div class="ai-chat-toggle__ring ai-chat-toggle__ring--2" aria-hidden="true"></div>
     <svg viewBox="0 0 24 24" class="ai-chat-toggle__icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       <path d="M12.5 6.5l.3.7.7.3-.7.3-.3.7-.3-.7-.7-.3.7-.3z" fill="currentColor" stroke="none"></path>
@@ -263,7 +297,7 @@
 
     <form id="ai-chat-form" class="ai-chat-form">
       <input type="text" id="ai-chat-input" placeholder="Ask about Sanju's experience, skills, projects..." autocomplete="off" required>
-      <button type="submit" class="btn btn--primary glass btn--sm" id="ai-chat-send" data-gel>Send</button>
+      <button type="submit" class="btn btn--primary glass btn--sm" data-gel>Send</button>
     </form>
   </div>
 
@@ -284,13 +318,13 @@
   <div id="guides-drawer-overlay" class="drawer-overlay" aria-hidden="true"></div>
   <aside id="guides-drawer" class="glass project-drawer" aria-hidden="true">
     <header class="project-drawer__header">
-      <h3 id="guides-drawer-title" class="project-drawer__title">Learning Guides</h3>
+      <h3 class="project-drawer__title">Learning Guides</h3>
       <button id="guides-drawer-close" class="project-drawer__close" aria-label="Close Guides">&times;</button>
     </header>
     <div class="guides-drawer__body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
       <div class="guides-drawer__slider" id="guides-drawer-slider">
         <!-- Level 1: Main Menu -->
-        <div class="guides-drawer__panel" id="guides-panel-l1">
+        <div class="guides-drawer__panel">
           <div class="guides-list">
             <button class="guides-item guides-item--active" id="guides-btn-backend" type="button">
               <div class="guides-item__info">
@@ -316,7 +350,7 @@
           </div>
         </div>
         <!-- Level 2: Backend Submenu -->
-        <div class="guides-drawer__panel" id="guides-panel-l2">
+        <div class="guides-drawer__panel">
           <button class="guides-back-btn" id="guides-back-l2-btn" type="button">← Back to Categories</button>
           <div class="guides-list">
             <button class="guides-item guides-item--active" id="guides-btn-python" type="button">
@@ -358,7 +392,7 @@
         Go Back
       </button>
       <div class="reader-header__title">
-        <h4 id="reader-header-title">Python from Scratch</h4>
+        <h4>Python from Scratch</h4>
         <span id="reader-header-chapter">Chapter 1 of 8</span>
       </div>
       <button id="reader-theme-btn" class="theme-toggle-btn" aria-label="Toggle Theme" type="button">
