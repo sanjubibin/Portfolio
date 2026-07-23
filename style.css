@@ -158,20 +158,12 @@ ul { list-style: none; }
   content: "";
   position: absolute;
   inset: 0;
-<<<<<<< HEAD
   z-index: 4;
   pointer-events: none;
   background-image: radial-gradient(circle, rgba(51, 65, 85, 0.24) 1px, transparent 1.4px);
   background-size: 21px 21px;
   -webkit-mask-image: radial-gradient(110% 95% at 50% 42%, #000 25%, transparent 78%);
   mask-image: radial-gradient(110% 95% at 50% 42%, #000 25%, transparent 78%);
-=======
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 160px 160px;
-  opacity: 0.012;
-  pointer-events: none;
-  z-index: 5;
->>>>>>> 090c4db29739d2bf109a8a1242efb667846590bb
 }
 
 /* ------------------------------------------------------- glass primitives */
@@ -488,7 +480,6 @@ ul { list-style: none; }
    book buttons, so it reads as "the action" instead of a washed-out pill
    on the near-white nav. */
 .nav__resume {
-<<<<<<< HEAD
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.88), hsl(var(--h-violet) / 0.82) 55%, hsl(var(--h-aqua) / 0.78)) !important;
   color: #ffffff !important;
   border: 1.5px solid hsl(var(--h-accent) / 0.6) !important;
@@ -496,10 +487,6 @@ ul { list-style: none; }
     0 2px 8px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
   transition: all 0.3s ease !important;
-=======
-  border: 1.5px solid hsl(var(--h-accent) / 0.35) !important;
-  transition: border-color 0.3s ease, transform 0.3s ease !important;
->>>>>>> 090c4db29739d2bf109a8a1242efb667846590bb
 }
 .nav__resume:hover {
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-violet) / 0.90) 55%, hsl(var(--h-aqua) / 0.85)) !important;
@@ -528,11 +515,8 @@ ul { list-style: none; }
   right: 26px;
   bottom: 1px;
   height: 2.5px;
-<<<<<<< HEAD
   border-radius: 2px;
   z-index: 3;
-=======
->>>>>>> 090c4db29739d2bf109a8a1242efb667846590bb
   background: linear-gradient(90deg, hsl(var(--h-accent)), hsl(var(--h-violet)), hsl(var(--h-aqua)));
   transform: scaleX(0);
   transform-origin: left center;
@@ -2005,11 +1989,6 @@ ul { list-style: none; }
    SCROLLYTELLING ENGINE & PLATFORM VISUALS
    ========================================================================= */
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 090c4db29739d2bf109a8a1242efb667846590bb
 #main {
   position: relative;
   z-index: 10;
@@ -2040,11 +2019,6 @@ ul { list-style: none; }
   display: block;
 }
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 090c4db29739d2bf109a8a1242efb667846590bb
 /* Infinite Sliding Tech Blocks Marquee */
 .tech-marquee {
   position: relative;
@@ -2111,10 +2085,7 @@ ul { list-style: none; }
   0% { transform: translateX(-50%); }
   100% { transform: translateX(0); }
 }
-<<<<<<< HEAD
 
-=======
->>>>>>> 090c4db29739d2bf109a8a1242efb667846590bb
 /* ---------------------------------------------------- resume viewer modal */
 .resume-modal {
   position: fixed;
