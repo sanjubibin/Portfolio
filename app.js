@@ -120,10 +120,11 @@
 
 
   function renderStats() {
+    // First full year on the job is 2023 (see CONFIG.experience durations).
     const stats = [
-      { n: 99, suffix: '%', label: 'Uptime SLA' },
-      { n: (CONFIG.projects || []).length, suffix: '+', label: 'One-Click Templates' },
-      { n: (CONFIG.skills || []).reduce((n, g) => n + (g.items || []).length, 0), suffix: '+', label: 'Tech Integrations' }
+      { n: Math.max(1, new Date().getFullYear() - 2023), suffix: '+', label: 'Years Experience' },
+      { n: (CONFIG.projects || []).length, suffix: '+', label: 'Production Projects' },
+      { n: (CONFIG.skills || []).reduce((n, g) => n + (g.items || []).length, 0), suffix: '+', label: 'Technologies & Tools' }
     ];
     $('#about-stats').innerHTML = stats.map((s) => `
       <div class="glass stat reveal">
@@ -1326,7 +1327,8 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     }
 
     // Theme Switcher Initialization
-    const savedTheme = localStorage.getItem('reader-theme') || 'dark';
+    // Default to light so the reader matches the light site on first open.
+    const savedTheme = localStorage.getItem('reader-theme') || 'light';
     reader.classList.toggle('reader-light-theme', savedTheme === 'light');
 
     // Show Reader
@@ -1693,7 +1695,7 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
         <div class="mm-loader">
           <div class="mm-spinner"></div>
           <p style="font-weight: 600; color: #fff;">Mining Transaction Block...</p>
-          <p style="font-size: 0.8rem; color: var(--ink-low);">Simulating network state transitions on Sepolia Testnet</p>
+          <p style="font-size: 0.8rem; color: #94a3b8;">Simulating network state transitions on Sepolia Testnet</p>
         </div>
       `;
 

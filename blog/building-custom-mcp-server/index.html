@@ -7,7 +7,7 @@
   <meta name="description" content="How I built a custom Model Context Protocol (MCP) server in Node.js: tool routing, consent-based security, and SSE streaming that cut first-token latency by 45%.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../blog-article.css">
 </head>
 <body>
@@ -132,8 +132,8 @@ async function callTool(name, args, session) {
   </article>
 
   <script>
-    // Initialize Theme
-    const savedTheme = localStorage.getItem('blog-theme') || 'dark';
+    // Initialize Theme (light by default, matching the portfolio)
+    const savedTheme = localStorage.getItem('blog-theme') || 'light';
     if (savedTheme === 'light') {
       document.body.classList.add('light-theme');
     }

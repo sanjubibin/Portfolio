@@ -1,28 +1,32 @@
 /* =========================================================================
    LIQUID GLASS DESIGN SYSTEM
-   Dark visionOS-style aesthetic: gradient mesh background, frosted glass
-   panels with specular highlights, 3D tilt, gel buttons, spring reveals.
+   Light visionOS-style aesthetic: pastel gradient-mesh background, frosted
+   glass panels with specular highlights, 3D tilt, gel buttons, spring
+   reveals.
    ========================================================================= */
 
 /* ---------------------------------------------------- living color system
-   The whole accent palette rides on ONE rotating hue angle. Every color
+   The whole accent palette rides on ONE drifting hue angle. Every color
    below is hsl(hue + fixed-offset, FIXED saturation, FIXED lightness) —
-   only the hue identity drifts; saturation/lightness never change, so
-   each color's brightness contribution (and therefore contrast against
-   text/background) is byte-identical at every point in the rotation.
-   Text (--ink-*) and surfaces (--bg-*, --glass-fill*) never reference
-   --hue at all — they are pure white/near-black, so readability is
-   structurally unaffected by the rotation. At --hue's initial value
-   (263) every formula below reproduces the original fixed hex palette
-   exactly, so this is a pure enhancement, not a redesign. */
+   only the hue identity drifts. Caveat: fixed HSL lightness is NOT fixed
+   luminance — at 45% lightness a yellow/green is far brighter than a
+   blue, so a full 360° rotation periodically dropped accent-colored text
+   and white-on-accent buttons below readable contrast on this light
+   theme. The drift is therefore clamped to the cool band --hue 248–338
+   (accent 210–300: cyan-blue → violet → magenta), where accent-on-white
+   and white-on-accent both stay ≥ 4.5:1 at every point, and the
+   animation ping-pongs (alternate) instead of wrapping. Text (--ink-*)
+   and surfaces (--bg-*, --glass-fill*) never reference --hue at all.
+   At --hue's initial value (263) every formula below reproduces the
+   original fixed hex palette exactly. */
 @property --hue {
   syntax: '<number>';
   inherits: true;
   initial-value: 263;
 }
 @keyframes hue-rotate {
-  from { --hue: 263; }
-  to   { --hue: 623; } /* 263 + 360 — wraps seamlessly, hsl() mods hue by 360 */
+  from { --hue: 248; }
+  to   { --hue: 338; } /* clamped cool band — see contrast note above */
 }
 
 /* ------------------------------------------------------------------ tokens */
@@ -40,14 +44,18 @@
   --h-cyan:   calc(var(--hue) - 75) 55% 85%;
 
   --accent: hsl(var(--h-accent));
-  --accent-2: hsl(var(--h-aqua));
+  /* Text-safe secondary accent: darker than the decorative --h-aqua so
+     teal text (timeline meta, drawer headings) stays ~AA on white at
+     every hue in the band. Gradients and glows keep using --h-aqua. */
+  --accent-2: hsl(calc(var(--hue) - 88) 60% 31%);
 
-  /* Ambient drift: ~320s per full revolution in 96 steps — one tiny
-     3.75-degree hue shift every ~3.3s, rare enough that the style-recalc
-     repaint each step causes can never read as stutter on any device.
-     animation-delay is set per-visit by a tiny inline script in <head>
-     so each page load starts at a different, random point in the cycle. */
-  animation: hue-rotate 320s steps(96, end) infinite;
+  /* Ambient drift: ~320s per 90° sweep in 96 steps — one tiny ~0.9-degree
+     hue shift every ~3.3s, rare enough that the style-recalc repaint each
+     step causes can never read as stutter on any device. The sweep
+     alternates direction (640s round trip). animation-delay is set
+     per-visit by a tiny inline script in <head> so each page load starts
+     at a different, random point in the cycle. */
+  animation: hue-rotate 320s steps(96, end) infinite alternate;
   animation-delay: var(--hue-delay, 0s);
 
   /* Deep slate ink contrast for light theme readability */
@@ -92,7 +100,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-::selection { background: hsl(var(--h-accent) / 0.35); color: #fff; }
+/* Dark ink on a light accent tint — readable at every hue in the band
+   (the old white-on-pale-accent recipe was a dark-theme leftover). */
+::selection { background: hsl(var(--h-accent) / 0.22); color: var(--ink-hi); }
 
 img { max-width: 100%; display: block; }
 a { color: inherit; }
@@ -112,24 +122,45 @@ ul { list-style: none; }
   overflow: hidden;
   background: var(--bg-0);
 }
-/* Base is composed symmetrically around the exact viewport center: the
-   gravity-well glow sits dead center, the violet/teal tints mirror each
-   other through it, and a centered vignette fades to the deepest navy at
-   the edges — no directional bias on either axis. */
+/* Aurora mesh: a soft gravity-well glow at dead center plus four corner
+   blooms in neighbouring hues (violet / teal / cyan / blue — all riding
+   --hue, so the whole atmosphere drifts with the accents). The strongest
+   tints sit at the viewport corners where no text lives; the center stays
+   quiet under content. A centered vignette frames the edges. */
 .bg__base {
   position: absolute;
   inset: 0;
   z-index: 1;
   background:
-    radial-gradient(50vmax 50vmax at 50% 50%, hsl(var(--h-blue) / 0.16), transparent 62%),
-    radial-gradient(85vmax 85vmax at 38% 32%, hsl(var(--h-violet) / 0.18), transparent 60%),
-    radial-gradient(85vmax 85vmax at 62% 68%, hsl(var(--h-teal) / 0.16), transparent 60%),
+    radial-gradient(50vmax 50vmax at 50% 50%, hsl(var(--h-blue) / 0.18), transparent 62%),
+    radial-gradient(80vmax 80vmax at 14% 12%, hsl(var(--h-violet) / 0.24), transparent 58%),
+    radial-gradient(80vmax 80vmax at 86% 88%, hsl(var(--h-teal) / 0.22), transparent 58%),
+    radial-gradient(70vmax 70vmax at 84% 14%, hsl(var(--h-cyan) / 0.20), transparent 56%),
+    radial-gradient(70vmax 70vmax at 14% 86%, hsl(var(--h-blue) / 0.16), transparent 56%),
     radial-gradient(140% 140% at 50% 50%, var(--bg-1), var(--bg-0) 65%);
 }
 
-/* Two soft color blobs, frozen at fixed orbital positions (static
-   transforms — the gradient falloff IS the blur, so there is no filter
-   and no animation cost; they rasterize once and are free forever). */
+/* Film grain: a tiled static SVG noise texture at ~5% alpha — takes the
+   sterile edge off the white. Rasterized once (one 220px tile, repeated
+   by the GPU), zero per-frame cost. Sits above the mesh and blobs
+   (z-index 3) and under the dot grid (z-index 4) so it textures the
+   color washes too. */
+.bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px;
+}
+
+/* Three soft color blobs on fixed orbital rails (the gradient falloff IS
+   the blur — no filter). On lite tiers they stay frozen exactly as
+   before. Capable devices get a very slow orbit: transform-only keyframes
+   are compositor work (the rasterized blob texture just moves — no
+   layout, no paint), and at 7–9 min per revolution the motion reads as
+   atmosphere, not animation. */
 .bg__blob {
   position: absolute;
   left: 50%;
@@ -140,14 +171,41 @@ ul { list-style: none; }
 .bg__blob--1 {
   width: 55vmax; height: 55vmax;
   margin: -27.5vmax 0 0 -27.5vmax;
-  background: radial-gradient(closest-side, hsl(var(--h-violet) / 0.36), transparent 68%);
+  background: radial-gradient(closest-side, hsl(var(--h-violet) / 0.40), transparent 68%);
   transform: rotate(131deg) translateX(34vmax) scale(1.08);
 }
 .bg__blob--2 {
   width: 55vmax; height: 55vmax;
   margin: -27.5vmax 0 0 -27.5vmax;
-  background: radial-gradient(closest-side, hsl(var(--h-teal) / 0.28), transparent 68%);
+  background: radial-gradient(closest-side, hsl(var(--h-teal) / 0.32), transparent 68%);
   transform: rotate(233deg) translateX(21vmax) scale(0.98);
+}
+.bg__blob--3 {
+  width: 45vmax; height: 45vmax;
+  margin: -22.5vmax 0 0 -22.5vmax;
+  background: radial-gradient(closest-side, hsl(var(--h-cyan) / 0.26), transparent 68%);
+  transform: rotate(20deg) translateX(26vmax) scale(1);
+}
+
+@keyframes orbit-1 {
+  from { transform: rotate(131deg) translateX(34vmax) scale(1.08); }
+  to   { transform: rotate(491deg) translateX(34vmax) scale(1.08); }
+}
+@keyframes orbit-2 {
+  from { transform: rotate(233deg) translateX(21vmax) scale(0.98); }
+  to   { transform: rotate(-127deg) translateX(21vmax) scale(0.98); }
+}
+@keyframes orbit-3 {
+  from { transform: rotate(20deg) translateX(26vmax) scale(1); }
+  to   { transform: rotate(380deg) translateX(26vmax) scale(1); }
+}
+/* Orbit only where it's free: capable devices without a reduced-motion
+   preference. perf-lite (low-end / data-saver / reduced-motion) never
+   sees these rules, keeping the frozen zero-cost background. */
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.perf-lite) .bg__blob--1 { animation: orbit-1 480s linear infinite; }
+  html:not(.perf-lite) .bg__blob--2 { animation: orbit-2 560s linear infinite; }
+  html:not(.perf-lite) .bg__blob--3 { animation: orbit-3 420s linear infinite; }
 }
 
 /* Blueprint dot matrix: a fine engineering dot grid over the mesh, masked
@@ -309,10 +367,12 @@ ul { list-style: none; }
   font-weight: 800;
   font-size: 0.95rem;
   letter-spacing: 0.03em;
-  color: #fff;
+  color: #ffffff;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
   text-decoration: none;
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.88), hsl(var(--h-violet) / 0.82) 55%, hsl(var(--h-aqua) / 0.78));
-  border: 1.5px solid hsl(var(--h-accent) / 0.6);
+  border: 1.5px solid #000000;
   box-shadow: 
     0 2px 8px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -321,10 +381,17 @@ ul { list-style: none; }
 .nav__brand:hover {
   transform: scale(1.06) translateY(-1px);
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-violet) / 0.90) 55%, hsl(var(--h-aqua) / 0.85));
-  border-color: hsl(var(--h-accent));
+  border-color: #000000;
   box-shadow: 
     0 8px 20px -6px hsl(var(--h-accent) / 0.4),
     0 0 8px hsl(var(--h-violet) / 0.25);
+}
+
+.nav__blog svg {
+  fill: #ffffff !important;
+  stroke: #000000 !important;
+  stroke-width: 2px !important;
+  paint-order: stroke fill !important;
 }
 
 .nav__links { display: flex; align-items: center; gap: 0.25rem; }
@@ -482,7 +549,9 @@ ul { list-style: none; }
 .nav__resume {
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.88), hsl(var(--h-violet) / 0.82) 55%, hsl(var(--h-aqua) / 0.78)) !important;
   color: #ffffff !important;
-  border: 1.5px solid hsl(var(--h-accent) / 0.6) !important;
+  -webkit-text-stroke: 1.2px #000000 !important;
+  paint-order: stroke fill !important;
+  border: 1.5px solid #000000 !important;
   box-shadow:
     0 2px 8px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
@@ -490,7 +559,7 @@ ul { list-style: none; }
 }
 .nav__resume:hover {
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-violet) / 0.90) 55%, hsl(var(--h-aqua) / 0.85)) !important;
-  border-color: hsl(var(--h-accent)) !important;
+  border-color: #000000 !important;
   box-shadow:
     0 8px 20px -6px hsl(var(--h-accent) / 0.4),
     0 0 8px hsl(var(--h-violet) / 0.25) !important;
@@ -524,8 +593,9 @@ ul { list-style: none; }
   pointer-events: none;
 }
 
-/* -------------------------------------------------------------- sections */
-.section { padding: 3rem 1.5rem 3.5rem; }
+/* -------------------------------------------------------------- sections
+   Horizontal padding comes from .scrolly__content-col, not the section. */
+.section { padding: 2.2rem 0; }
 .section__inner { max-width: 1120px; margin: 0 auto; }
 
 .section__title {
@@ -544,12 +614,7 @@ ul { list-style: none; }
 /* ------------------------------------------------------------------ hero */
 .hero {
   position: relative;
-  min-height: 74vh;
-  min-height: 74svh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 7rem 1.5rem 3rem;
+  padding: 7.5rem 0 2.5rem;
   overflow: hidden;
 }
 
@@ -660,7 +725,7 @@ ul { list-style: none; }
 }
 .about__avatar img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; }
 
-.about__text h3 { font-size: 1.3rem; color: var(--ink-hi); margin-bottom: 0.6rem; }
+.about__text h3 { font-size: 1.28rem; color: var(--ink-hi); margin-bottom: 0.6rem; }
 .about__bio { color: var(--ink-mid); }
 
 .about__stats { display: grid; grid-template-rows: repeat(3, 1fr); gap: 1.5rem; }
@@ -696,7 +761,7 @@ ul { list-style: none; }
   border-radius: var(--r-pill);
   font-size: 0.87rem;
   color: var(--ink-mid);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.14), rgba(255, 255, 255, 0.05) 55%, hsl(var(--h-aqua) / 0.1));
   transition: transform 0.35s var(--ease-spring), border-color 0.3s ease;
 }
@@ -710,12 +775,12 @@ ul { list-style: none; }
   border-radius: var(--r-pill);
   font: 500 0.9rem var(--font-main);
   color: var(--ink-mid);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.1);
   cursor: pointer;
   transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
 }
-.chip:hover { color: var(--ink-hi); background: rgba(255, 255, 255, 0.1); }
+.chip:hover { color: var(--ink-hi); background: rgba(15, 23, 42, 0.07); }
 .chip[aria-pressed="true"] {
   color: var(--ink-hi);
   background: linear-gradient(135deg, hsl(var(--h-accent) / 0.26), hsl(var(--h-aqua) / 0.18));
@@ -728,12 +793,22 @@ ul { list-style: none; }
 .project-card { display: flex; flex-direction: column; gap: 0.9rem; padding: 2rem; }
 
 .project-card__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
 }
-.project-card h3 { flex: 1; font-size: 1.32rem; color: var(--ink-hi); letter-spacing: -0.01em; }
+.project-card h3 { 
+  font-size: 1.28rem; 
+  color: var(--ink-hi); 
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 0; 
+}
+.project-card__head .badge {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
 
 /* Category monogram tile: 2-letter mark on a category-colored gradient.
    Static CSS riding the hue tokens — zero runtime cost. */
@@ -744,7 +819,7 @@ ul { list-style: none; }
   display: grid;
   place-items: center;
   border-radius: 14px;
-  font: 800 0.82rem var(--font-code);
+  font: 700 0.82rem var(--font-code); /* heaviest weight Fira Code ships */
   letter-spacing: 0.04em;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.45);
@@ -802,6 +877,26 @@ ul { list-style: none; }
 .project-card__links { display: flex; gap: 0.75rem; margin-top: 0.4rem; }
 .project-card__links a { font-size: 0.9rem; font-weight: 600; color: var(--accent); text-decoration: none; }
 .project-card__links a:hover { text-decoration: underline; }
+
+.open-details-btn {
+  /* Strong violet mid-stop: --h-violet is an 85%-light PASTEL token, so
+     white text washed out over the old gradient's midsection. */
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  color: #ffffff !important;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
+  border: 1.5px solid #000000 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  transition: all 0.3s ease !important;
+}
+.open-details-btn:hover {
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22) !important;
+  transform: translateY(-1px);
+}
 
 /* ------------------------------------------------------------ experience */
 .timeline {
@@ -920,7 +1015,7 @@ ul { list-style: none; }
 #cf-submit[disabled] { opacity: 0.6; cursor: progress; }
 
 .contact__aside { display: flex; flex-direction: column; gap: 1.4rem; padding: 2.25rem; }
-.contact__aside h3 { font-size: 1.2rem; color: var(--ink-hi); }
+.contact__aside h3 { font-size: 1.28rem; color: var(--ink-hi); }
 
 .contact__meta { display: flex; flex-direction: column; gap: 0.85rem; }
 .contact__meta li { display: flex; align-items: center; gap: 0.7rem; color: var(--ink-mid); font-size: 0.96rem; }
@@ -1005,7 +1100,6 @@ ul { list-style: none; }
 
 @media (max-width: 768px) {
   :root { --r-lg: 24px; }
-  .section { padding: 2.5rem 1.25rem 3rem; }
   .projects__grid { grid-template-columns: 1fr; }
   .skills { grid-template-columns: 1fr; }
   .about__card { flex-direction: column; align-items: center; text-align: center; }
@@ -1016,19 +1110,6 @@ ul { list-style: none; }
 
 @media (max-width: 600px) {
   .nav__resume { display: none; }
-  /* Project card head: on narrow screens the badge no longer shares the
-     row with the title (it was crushing long titles into one word per
-     line) — mark + title sit together, badge moves to its own line. */
-  .project-card__head {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 0.7rem 0.9rem;
-  }
-  .project-card__head .badge {
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
   .project-card h3 { font-size: 1.15rem; }
   .about__stats { grid-template-columns: 1fr; }
   .stat { flex-direction: row; align-items: baseline; gap: 0.9rem; }
@@ -1112,20 +1193,23 @@ ul { list-style: none; }
   gap: 0.5rem;
   cursor: pointer;
   color: #ffffff;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
   font-family: var(--font-main);
   font-size: 0.92rem;
   font-weight: 600;
-  border: 1.5px solid transparent;
+  border: 1.5px solid #000000;
   background: 
     linear-gradient(hsl(var(--h-accent)), hsl(var(--h-accent))) padding-box,
     linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-violet)), hsl(var(--h-aqua))) border-box;
   box-shadow: 
     0 12px 32px -8px hsl(var(--h-accent) / 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: transform 0.35s var(--ease-spring), box-shadow 0.35s ease;
+  transition: transform 0.35s var(--ease-spring), box-shadow 0.35s ease, border-color 0.35s ease;
 }
 .ai-chat-toggle:hover {
   transform: scale(1.05) translateY(-2px);
+  border-color: #000000;
   box-shadow: 
     0 16px 40px -8px hsl(var(--h-accent) / 0.55),
     0 0 16px 2px hsl(var(--h-violet) / 0.3);
@@ -1134,7 +1218,9 @@ ul { list-style: none; }
   width: 19px;
   height: 19px;
   color: #ffffff;
-  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+  stroke: #000000;
+  stroke-width: 2px;
+  paint-order: stroke fill;
   transition: transform 0.4s var(--ease-spring);
 }
 .ai-chat-toggle:hover svg {
@@ -1206,11 +1292,15 @@ ul { list-style: none; }
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 0.85rem;
-  color: #fff;
-  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.5), hsl(var(--h-violet) / 0.4) 60%, hsl(var(--h-aqua) / 0.45));
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.88), hsl(var(--h-violet) / 0.82) 55%, hsl(var(--h-aqua) / 0.78));
+  border: 1.5px solid #000000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 .ai-chat-header__title {
   font-size: 0.95rem;
@@ -1252,7 +1342,7 @@ ul { list-style: none; }
 .ai-chat-header__btn--close:hover {
   background: rgba(239, 68, 68, 0.18);
   border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
+  color: #dc2626;
 }
 
 /* Resize grip indicator in bottom-right corner */
@@ -1376,7 +1466,7 @@ ul { list-style: none; }
   height: calc(100% - 16px);
   border-radius: var(--r-pill);
   background: hsl(var(--h-accent) / 0.14);
-  border: 1px solid hsl(var(--h-accent) / 0.28);
+  border: 1.5px solid #000000;
   z-index: 1;
   pointer-events: none;
   opacity: 0;
@@ -1587,7 +1677,7 @@ ul { list-style: none; }
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 2, 8, 0.4);
+  background: rgba(15, 23, 42, 0.55);
   opacity: 0;
   pointer-events: none;
   z-index: 140;
@@ -1609,12 +1699,18 @@ ul { list-style: none; }
   transform: translateX(100%) !important;
   pointer-events: none;
   transition: transform 0.45s var(--ease-out);
-  --glass-fill: rgba(255, 255, 255, 0.58);
   border-radius: 0;
-  border-left: 1px solid rgba(15, 23, 42, 0.08);
+  border-left: 1.5px solid #000000;
   border-top: none;
   border-bottom: none;
-  box-shadow: -20px 0 60px -10px rgba(15, 23, 42, 0.12);
+  background:
+    linear-gradient(135deg, 
+      hsl(var(--h-accent) / 0.18), 
+      hsl(var(--h-violet) / 0.14) 50%, 
+      hsl(var(--h-aqua) / 0.18)
+    ),
+    rgba(255, 255, 255, 0.94);
+  box-shadow: -20px 0 60px -10px rgba(15, 23, 42, 0.25);
 }
 .project-drawer.is-open {
   transform: translateX(0) !important;
@@ -1625,7 +1721,7 @@ ul { list-style: none; }
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem 1.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 .project-drawer__title {
   font-size: 1.4rem;
@@ -1636,7 +1732,8 @@ ul { list-style: none; }
   background: none;
   border: none;
   font-size: 1.8rem;
-  color: var(--ink-low);
+  font-weight: 800;
+  color: #000000;
   cursor: pointer;
   line-height: 1;
   padding: 0.5rem;
@@ -1644,10 +1741,11 @@ ul { list-style: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 .project-drawer__close:hover {
-  color: var(--ink-hi);
+  color: #000000;
+  transform: scale(1.15);
 }
 .project-drawer__body {
   flex: 1;
@@ -1671,16 +1769,18 @@ ul { list-style: none; }
   font-weight: 600;
 }
 .drawer-arch-box {
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  border: 1.5px solid #000000;
   border-radius: 14px;
   padding: 1rem 1.2rem;
   font-family: var(--font-code);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   line-height: 1.5;
-  color: #312e81;
+  color: #0f172a;
+  font-weight: 600;
   white-space: pre-wrap;
   word-break: break-all;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .drawer-bullets {
   display: flex;
@@ -1715,7 +1815,7 @@ ul { list-style: none; }
 .dapp-modal {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.25);
+  background: rgba(15, 23, 42, 0.55);
   z-index: 300;
   display: flex;
   align-items: center;
@@ -1733,13 +1833,35 @@ ul { list-style: none; }
   width: 380px;
   max-width: 100%;
   padding: 1.75rem;
-  --glass-fill: rgba(18, 18, 38, 0.94);
-  --accent-2: #38bdf8; /* Keep simulated gas value bright sky blue inside the dark modal */
+  border: 1.5px solid #000000;
+  background:
+    linear-gradient(135deg, 
+      hsl(var(--h-accent) / 0.18), 
+      hsl(var(--h-violet) / 0.14) 50%, 
+      hsl(var(--h-aqua) / 0.18)
+    ),
+    rgba(18, 18, 38, 0.94);
   box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   text-align: center;
+}
+.dapp-modal__box .btn {
+  border: 1.5px solid #000000 !important;
+  font-weight: 700 !important;
+}
+.dapp-modal__box .mm-reject {
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+.dapp-modal__box .mm-reject:hover {
+  background: #f1f5f9 !important;
+}
+.dapp-modal__box .mm-confirm {
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92)) !important;
+  color: #ffffff !important;
+  -webkit-text-stroke: 1.2px #000000;
 }
 .mm-header {
   display: flex;
@@ -1780,6 +1902,8 @@ ul { list-style: none; }
   flex-direction: column;
   gap: 0.25rem;
 }
+/* Base mm-* rows are light-surface safe: they're also reused OUTSIDE the
+   dark dapp box (e.g. the Category line in the light project drawer). */
 .mm-label {
   font-size: 0.76rem;
   text-transform: uppercase;
@@ -1794,11 +1918,17 @@ ul { list-style: none; }
 .mm-value--mono {
   font-family: var(--font-code);
   font-size: 0.82rem;
-  color: #a5b4fc;
+  color: var(--accent);
 }
 .mm-value--gas {
   color: var(--accent-2);
 }
+/* Inside the dapp box — the site's one intentionally dark surface — the
+   rows switch to explicit light inks (--ink-* vars are dark-on-light). */
+.dapp-modal .mm-label { color: #94a3b8; }
+.dapp-modal .mm-value { color: #f8fafc; }
+.dapp-modal .mm-value--mono { color: #a5b4fc; }
+.dapp-modal .mm-value--gas { color: #34d399; }
 .mm-buttons {
   display: flex;
   gap: 0.75rem;
@@ -1877,18 +2007,19 @@ ul { list-style: none; }
 }
 .mm-token-card__info p {
   font-size: 0.76rem;
-  color: var(--ink-low);
+  color: #94a3b8;
 }
 
 /* ---------------------------------------------------- mcp playground UI */
 .mcp-play {
-  background: rgba(15, 23, 42, 0.02);
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  border: 1.5px solid #000000;
   border-radius: 14px;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 .mcp-play__row {
   display: flex;
@@ -1898,33 +2029,35 @@ ul { list-style: none; }
 .mcp-play__row label {
   font-size: 0.74rem;
   text-transform: uppercase;
-  color: var(--ink-low);
+  color: #334155;
   letter-spacing: 0.04em;
-  font-weight: 500;
+  font-weight: 700;
 }
 .mcp-play__select {
-  background: rgba(15, 23, 42, 0.04);
-  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #ffffff;
+  border: 1.5px solid #000000;
   border-radius: 8px;
   padding: 0.45rem 0.65rem;
-  color: var(--ink-hi);
+  color: #0f172a;
   font-family: inherit;
   font-size: 0.86rem;
   outline: none;
+  font-weight: 600;
 }
 .mcp-play__select option {
   background: #fff;
-  color: var(--ink-hi);
+  color: #0f172a;
 }
 .mcp-play__code {
-  background: rgba(15, 23, 42, 0.03);
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #f8fafc;
+  border: 1.5px solid #000000;
   border-radius: 8px;
   padding: 0.65rem 0.85rem;
   font-family: var(--font-code);
   font-size: 0.76rem;
   line-height: 1.4;
-  color: #1e293b;
+  color: #0f172a;
+  font-weight: 500;
   margin: 0;
   max-height: 130px;
   overflow-y: auto;
@@ -1932,19 +2065,33 @@ ul { list-style: none; }
 }
 .mcp-play__code--output {
   color: #15803d;
-  border-color: rgba(22, 163, 74, 0.15);
-  background: rgba(22, 163, 74, 0.04);
+  border: 1.5px solid #000000;
+  background: #f0fdf4;
   min-height: 80px;
+  font-weight: 600;
 }
-.mcp-play__btn {
-  border: none;
+.mcp-play__btn,
+.open-dapp-btn {
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  color: #ffffff !important;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
+  border: 1.5px solid #000000 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
   align-self: flex-start;
+}
+.mcp-play__btn:hover,
+.open-dapp-btn:hover {
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
 }
 /* ---------------------------------------------------- contact success modal */
 .contact-success {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.25);
+  background-color: rgba(15, 23, 42, 0.55);
   z-index: 11000;
   display: flex;
   align-items: center;
@@ -1960,13 +2107,37 @@ ul { list-style: none; }
 }
 .contact-success__box {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px; /* matches its sibling .warning-modal__box */
   padding: 2.2rem 2rem;
-  border-radius: 20px;
+  border-radius: var(--r-lg);
   text-align: center;
-  box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.85);
+  border: 1.5px solid #000000;
+  background:
+    linear-gradient(135deg, 
+      hsl(var(--h-accent) / 0.18), 
+      hsl(var(--h-violet) / 0.14) 50%, 
+      hsl(var(--h-aqua) / 0.18)
+    ),
+    rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 40px 100px -20px rgba(15, 23, 42, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   transform: scale(0.92);
   transition: transform 0.4s var(--ease-spring);
+}
+.contact-success__box .btn {
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  color: #ffffff !important;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
+  border: 1.5px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+  font-weight: 700 !important;
+}
+.contact-success__box .btn:hover {
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
 }
 .contact-success.is-open .contact-success__box {
   transform: scale(1);
@@ -1975,14 +2146,15 @@ ul { list-style: none; }
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background-color: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.4);
-  color: #34d399;
+  background: #ffffff;
+  border: 1.5px solid #000000;
+  color: #16a34a;
   font-size: 1.6rem;
-  font-weight: 700;
+  font-weight: 800;
   display: grid;
   place-items: center;
   margin: 0 auto 1.2rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* =========================================================================
@@ -2009,16 +2181,6 @@ ul { list-style: none; }
     grid-template-columns: repeat(4, 1fr) !important;
   }
 }
-.hero {
-  min-height: auto;
-  display: block;
-  padding: 7.5rem 0 2.5rem;
-}
-.section {
-  padding: 2.2rem 0;
-  display: block;
-}
-
 /* Infinite Sliding Tech Blocks Marquee */
 .tech-marquee {
   position: relative;
@@ -2053,7 +2215,7 @@ ul { list-style: none; }
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 
     0 8px 24px -6px rgba(15, 23, 42, 0.06),
@@ -2090,7 +2252,7 @@ ul { list-style: none; }
 .resume-modal {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.55);
   z-index: 300;
   display: flex;
   align-items: center;
@@ -2176,7 +2338,7 @@ ul { list-style: none; }
 .warning-modal {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.55);
   z-index: 310;
   display: flex;
   align-items: center;
@@ -2198,36 +2360,64 @@ ul { list-style: none; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  --glass-fill: rgba(255, 255, 255, 0.78);
-  border: 1.5px solid transparent;
+  border: 1.5px solid #000000;
   background:
-    linear-gradient(var(--glass-fill), var(--glass-fill)) padding-box,
-    linear-gradient(135deg, hsl(var(--h-accent) / 0.35), hsl(var(--h-violet) / 0.30) 50%, hsl(var(--h-aqua) / 0.35)) border-box;
+    linear-gradient(135deg, 
+      hsl(var(--h-accent) / 0.18), 
+      hsl(var(--h-violet) / 0.14) 50%, 
+      hsl(var(--h-aqua) / 0.18)
+    ),
+    rgba(255, 255, 255, 0.92);
   box-shadow: 
-    0 40px 100px -20px rgba(15, 23, 42, 0.15),
+    0 40px 100px -20px rgba(15, 23, 42, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   border-radius: var(--r-lg);
 }
+#status-warning-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1.5px solid #000000;
+  display: grid;
+  place-items: center;
+  font-size: 2.2rem;
+  margin: 0 auto 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
 .warning-modal__title {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  color: var(--ink-hi);
+  color: #0f172a;
   margin-bottom: 0.75rem;
 }
 .warning-modal__text {
-  font-size: 0.92rem;
-  color: var(--ink-mid);
+  font-size: 0.95rem;
+  color: #334155;
   line-height: 1.6;
   margin-bottom: 1.5rem;
 }
 .warning-modal__close {
   width: 100%;
-  padding: 0.65rem;
-  font-weight: 600;
-  border: 1.5px solid hsl(var(--h-accent) / 0.35) !important;
-  color: #fff !important;
-  box-shadow: 0 8px 24px -6px hsl(var(--h-accent) / 0.3) !important;
+  padding: 0.7rem 1.2rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  color: #ffffff !important;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
+  border: 1.5px solid #000000 !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2) !important;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: all 0.3s ease !important;
+}
+.warning-modal__close:hover {
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
   transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25) !important;
 }
 
 /* =========================================================================
@@ -2813,18 +3003,14 @@ ul { list-style: none; }
 /* =========================================================================
    EFFICIENT RENDERING — GLOBAL
    The phone-tier optimizations applied to EVERY device: solid milky glass
-   (no live backdrop sampling), a fully static ambient background, and a
-   slow-stepped hue drift. The futurism comes from structure — dot matrix,
-   glass layering, the living color system — not from per-frame GPU work.
-   The .perf-lite class (low-end / data-saver / reduced-motion) still
-   additionally skips the GSAP download and offscreen rendering.
+   (no live backdrop sampling), an ambient background with no paint cost
+   (static on lite tiers; capable devices add only a compositor-only slow
+   blob orbit), and a slow-stepped hue drift. The futurism comes from
+   structure — dot matrix, grain, glass layering, the living color
+   system — not from per-frame paint work. The .perf-lite class (low-end /
+   data-saver / reduced-motion) still additionally skips the GSAP download
+   and offscreen rendering.
    ========================================================================= */
-
-/* Modal & drawer dimmers: a deeper tint replaces the old backdrop blur. */
-.drawer-overlay, .dapp-modal, .resume-modal, .warning-modal, .contact-success {
-  background: rgba(15, 23, 42, 0.55);
-}
-.tech-block { background: rgba(255, 255, 255, 0.82); }
 
 /* Marquee autopause (any device): JS toggles this class when offscreen */
 .tech-marquee.is-offscreen .tech-marquee__track { animation-play-state: paused; }

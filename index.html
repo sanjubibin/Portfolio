@@ -37,8 +37,8 @@
     window.PERF_LITE = !!lite;
     if (lite) doc.className += ' perf-lite';
     // Randomize the ambient hue starting point per visit (spans the full
-    // 320s cycle; referenced by style.css).
-    doc.style.setProperty('--hue-delay', (-(Math.random() * 320)).toFixed(1) + 's');
+    // 640s alternate ping-pong cycle; referenced by style.css).
+    doc.style.setProperty('--hue-delay', (-(Math.random() * 640)).toFixed(1) + 's');
     // Capable devices only: fetch the animation engine in parallel with CSS.
     if (!lite) {
       var urls = [
@@ -63,17 +63,19 @@
   <!-- Font imports (Outfit + Fira Code for CLI console) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Ambient background: static gradient mesh + frozen blobs + dot matrix.
-       Entirely static on every device — rasterized once, zero per-frame cost. -->
+  <!-- Ambient background: aurora gradient mesh + color blobs + film grain
+       + dot matrix. Static (rasterized once) on lite tiers; capable devices
+       additionally get a very slow compositor-only blob orbit. -->
   <div class="bg" aria-hidden="true">
     <div class="bg__base"></div>
     <div class="bg__blob bg__blob--1"></div>
     <div class="bg__blob bg__blob--2"></div>
+    <div class="bg__blob bg__blob--3"></div>
   </div>
 
   <!-- Floating glass navbar -->
@@ -189,7 +191,7 @@
         <div class="section__inner">
           <h2 class="section__title reveal">Production Solutions</h2>
           <p class="section__sub reveal">Featured backend systems, generative AI client tools, and smart contract integrations.</p>
-          <div class="chips reveal" id="project-filters" role="group" aria-label="Filter templates by category"></div>
+          <div class="chips reveal" id="project-filters" role="group" aria-label="Filter projects by category"></div>
           <div class="projects__grid" id="projects-grid"></div>
         </div>
       </section>
@@ -454,7 +456,7 @@
     <div class="cli-terminal__body">
       <div class="cli-terminal__output" id="cli-terminal-output">
         <span style="color:var(--ink-hi); font-weight: 700;">Welcome to Sanju Antony's Developer Terminal Sandbox v2.0.0.</span>
-        <span style="color:#e05600; font-weight: 700;">[WARN] System under active development. Remote SSH compiler links are simulated.</span>
+        <span style="color:#c2410c; font-weight: 700;">[WARN] System under active development. Remote SSH compiler links are simulated.</span>
         <span style="color:var(--ink-mid);">Type '<span style="color:#16a34a; font-weight: 700;">help</span>' to see list of available commands.</span>
       </div>
     </div>
@@ -464,7 +466,7 @@
   <div id="contact-success-modal" class="contact-success" aria-hidden="true">
     <div class="glass contact-success__box">
       <div class="contact-success__icon">✓</div>
-      <h4 style="font-weight: 700; color: #fff; font-size: 1.25rem; margin-bottom: 0.5rem;">Message Sent Successfully!</h4>
+      <h4 style="font-weight: 700; color: var(--ink-hi); font-size: 1.25rem; margin-bottom: 0.5rem;">Message Sent Successfully!</h4>
       <p style="font-size: 0.95rem; color: var(--ink-low); line-height: 1.5;">Thank you for getting in touch. I will review your message and connect with you shortly.</p>
       <button type="button" class="btn btn--sm glass" id="contact-success-close" data-gel style="margin-top: 1.2rem; width: 100%;">Close</button>
     </div>

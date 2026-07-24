@@ -1,6 +1,8 @@
 :root {
-  /* Dark Theme (Default) */
   --font-main: 'Outfit', sans-serif;
+  --font-code: 'Fira Code', ui-monospace, monospace; /* matches the main site */
+
+  /* Dark Theme */
   --bg-color: #080c14;
   --panel-bg: rgba(255, 255, 255, 0.02);
   --panel-border: rgba(255, 255, 255, 0.06);
@@ -224,7 +226,7 @@ h1 {
   border-radius: 12px;
   border: 1px solid var(--code-border);
   color: var(--code-text);
-  font-family: monospace;
+  font-family: var(--font-code);
   font-size: 0.95rem;
   overflow-x: auto;
   margin-bottom: 24px;
@@ -288,7 +290,7 @@ h1 {
   border: 1px solid var(--code-border);
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--font-code);
   font-weight: 700;
 }
 
@@ -368,7 +370,7 @@ body.light-theme .shell-header {
   background: transparent;
   border: none;
   color: var(--code-text);
-  font-family: monospace;
+  font-family: var(--font-code);
   font-size: 0.95rem;
   padding: 16px;
   resize: vertical;
@@ -400,5 +402,9 @@ body.light-theme .shell-output {
 }
 
 .shell-output.err {
-  color: #f43f5e !important; /* Red error text */
+  color: #f43f5e !important; /* Red error text (dark theme) */
+}
+
+body.light-theme .shell-output.err {
+  color: #dc2626 !important; /* Darker red for readable errors on light */
 }
