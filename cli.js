@@ -68,14 +68,14 @@
     // 1. Comments
     temp = temp.replace(/(#.*)$/g, (match) => {
       const id = `___PY_TOKEN_COMMENT_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#94a3b8; font-style:italic;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:#64748b; font-style:italic;">${match}</span>` });
       return id;
     });
 
     // 2. Strings
     temp = temp.replace(/("(?:\\"|[^"])*"|'(?:\\'|[^'])*')/g, (match) => {
       const id = `___PY_TOKEN_STRING_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#22c55e;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:#16a34a;">${match}</span>` });
       return id;
     });
 
@@ -89,7 +89,7 @@
     const keywordsRegex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g');
     temp = temp.replace(keywordsRegex, (match) => {
       const id = `___PY_TOKEN_KEY_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#c084fc; font-weight:700;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:#9333ea; font-weight:700;">${match}</span>` });
       return id;
     });
 
@@ -102,21 +102,21 @@
     const builtinsRegex = new RegExp(`\\b(${builtins.join('|')})\\b`, 'g');
     temp = temp.replace(builtinsRegex, (match) => {
       const id = `___PY_TOKEN_BUILT_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#38bdf8; font-weight:600;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:#0284c7; font-weight:600;">${match}</span>` });
       return id;
     });
 
     // 5. Functions
     temp = temp.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*\()/g, (match) => {
       const id = `___PY_TOKEN_FUNC_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#eab308;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:#a16207;">${match}</span>` });
       return id;
     });
 
     // 6. Numbers
     temp = temp.replace(/\b(\d+(?:\.\d+)?)\b/g, (match) => {
       const id = `___PY_TOKEN_NUM_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#fb923c;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:#c2410c;">${match}</span>` });
       return id;
     });
 
@@ -139,11 +139,11 @@
     
     if (isPythonRepl) {
       promptSpan.textContent = '>>> ';
-      promptSpan.style.color = '#38bdf8';
+      promptSpan.style.color = '#0284c7';
     } else {
       const username = (CONFIG.terminalPrompt && CONFIG.terminalPrompt.username) || 'visitor';
       const hostname = (CONFIG.terminalPrompt && CONFIG.terminalPrompt.hostname) || 'portfolio';
-      promptSpan.innerHTML = `<span style="color:#22c55e; font-weight:bold;">${esc(username)}@${esc(hostname)}</span>:<span style="color:#3b82f6; font-weight:bold;">~</span>$`;
+      promptSpan.innerHTML = `<span style="color:#16a34a; font-weight:bold;">${esc(username)}@${esc(hostname)}</span>:<span style="color:#2563eb; font-weight:bold;">~</span>$`;
       promptSpan.style.color = '';
     }
 
@@ -183,7 +183,7 @@
       } else {
         const commandRegex = /^(help|about|skills|projects|experience|contact|clear|python)\b/;
         if (commandRegex.test(val)) {
-          overlay.innerHTML = val.replace(commandRegex, '<span style="color:#c084fc; font-weight:bold;">$1</span>');
+          overlay.innerHTML = val.replace(commandRegex, '<span style="color:#9333ea; font-weight:bold;">$1</span>');
         } else {
           overlay.textContent = val;
         }
@@ -290,7 +290,7 @@
         } else {
           const commandRegex = /^(help|about|skills|projects|experience|contact|clear|python)\b/;
           if (commandRegex.test(text)) {
-            typed.innerHTML = text.replace(commandRegex, '<span style="color:#c084fc; font-weight:bold;">$1</span>');
+            typed.innerHTML = text.replace(commandRegex, '<span style="color:#9333ea; font-weight:bold;">$1</span>');
           } else {
             typed.textContent = text;
             typed.style.color = 'var(--ink-hi)';
@@ -376,7 +376,7 @@
           logOutput(esc(String(result)));
         }
       } catch (err) {
-        logOutput(`<span style="color:#ef4444;">${esc(err.message)}</span>`);
+        logOutput(`<span style="color:#dc2626;">${esc(err.message)}</span>`);
       }
       return;
     }
@@ -428,10 +428,10 @@
           pyodideInstance = await loadPyodide({
             indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
             stdout: (text) => logOutput(esc(text)),
-            stderr: (text) => logOutput(`<span style="color:#ef4444;">${esc(text)}</span>`)
+            stderr: (text) => logOutput(`<span style="color:#dc2626;">${esc(text)}</span>`)
           });
         } catch (err) {
-          logOutput(`<span style="color:#ef4444;">Failed to load Pyodide: ${esc(err.message)}</span>`);
+          logOutput(`<span style="color:#dc2626;">Failed to load Pyodide: ${esc(err.message)}</span>`);
           return;
         }
       }
@@ -459,10 +459,10 @@ Type "exit()" or "quit()" to return to the host terminal shell.`);
             pyodideInstance = await loadPyodide({
               indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
               stdout: (text) => logOutput(esc(text)),
-              stderr: (text) => logOutput(`<span style="color:#ef4444;">${esc(text)}</span>`)
+              stderr: (text) => logOutput(`<span style="color:#dc2626;">${esc(text)}</span>`)
             });
           } catch (err) {
-            logOutput(`<span style="color:#ef4444;">[pip] Failed to initialize WebAssembly: ${esc(err.message)}</span>`);
+            logOutput(`<span style="color:#dc2626;">[pip] Failed to initialize WebAssembly: ${esc(err.message)}</span>`);
             return;
           }
         }
@@ -473,9 +473,9 @@ Type "exit()" or "quit()" to return to the host terminal shell.`);
           await pyodideInstance.loadPackage('micropip');
           const micropip = pyodideInstance.pyimport('micropip');
           await micropip.install(pkg);
-          logOutput(`<span style="color:#22c55e;">[pip] Successfully installed ${esc(pkg)} inside the WebAssembly environment.</span>`);
+          logOutput(`<span style="color:#16a34a;">[pip] Successfully installed ${esc(pkg)} inside the WebAssembly environment.</span>`);
         } catch (err) {
-          logOutput(`<span style="color:#ef4444;">[pip] Installation failed: ${esc(err.message)}</span>`);
+          logOutput(`<span style="color:#dc2626;">[pip] Installation failed: ${esc(err.message)}</span>`);
         }
         return;
       }
