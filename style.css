@@ -1613,6 +1613,27 @@ html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
     inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
+/* Open/close is a transform-only FLIP morph (see ai-clone.js): pre-promote
+   the panel's layer while it's displayed, and drop the .glass shine sweep —
+   a full-panel gradient animation that fired on focus-within exactly when
+   the input focuses at the end of the open morph. */
+.ai-chat-container { will-change: transform, opacity; }
+.ai-chat-container::after { content: none; }
+
+/* No-GSAP fallback: CSS-transition morph out of the button corner.
+   .chat-lite owns BOTH end states (the base rule's hidden opacity:0
+   must not leak into the open state). */
+.ai-chat-container.chat-lite {
+  transform-origin: 100% 100%;
+  transition: transform 0.3s var(--ease-out), opacity 0.3s ease;
+  transform: scale(1);
+  opacity: 1;
+}
+.ai-chat-container.chat-lite--closed {
+  transform: scale(0.2);
+  opacity: 0;
+}
+
 .ai-chat-header {
   display: flex;
   justify-content: space-between;
@@ -2015,6 +2036,29 @@ html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
   font-style: normal;
   opacity: 0.95;
 }
+/* Touch quick-command chips (created by cli.js; pointer devices never
+   see them — typing is fine with a real keyboard). */
+.cli-terminal__chips {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0 0.15rem;
+  flex-shrink: 0;
+}
+.cli-terminal__chip {
+  border: 1px solid var(--cli-comment);
+  background: transparent;
+  color: inherit;
+  font: 500 0.78rem var(--font-code);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cli-terminal__chip:active { background: rgba(148, 163, 184, 0.2); }
+@media (hover: none) {
+  .cli-terminal__chips { display: flex; }
+}
+
 .cli-terminal .cli-bar-chart {
   display: inline-block;
   color: var(--cli-green);

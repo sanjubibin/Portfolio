@@ -29,42 +29,50 @@
     chatContainer.setAttribute('aria-hidden', String(!isOpen));
 
     const isMobile = window.innerWidth <= 480;
-    const initialBottom = isMobile ? 18 : 24;
-    const initialRight = isMobile ? 18 : 24;
     const targetBottom = isMobile ? 16 : 24;
     const targetRight = isMobile ? 16 : 24;
     const targetWidth = isMobile ? window.innerWidth - 32 : 380;
     const targetHeight = isMobile ? Math.min(window.innerHeight * 0.72, 520) : 580;
     const targetBorderRadius = isMobile ? '24px' : '20px';
 
-    // Measure toggle button's current dimensions to start/return the morph dynamically
-    const toggleRect = toggleBtn.getBoundingClientRect();
-    const toggleW = toggleRect.width || (isMobile ? 44 : 112);
-    const toggleH = toggleRect.height || 44;
-    const toggleBR = window.getComputedStyle(toggleBtn).borderRadius || (isMobile ? '50%' : '22px');
-
-    // No animation engine (perf-lite devices / blocked CDN): plain show/hide.
+    // No animation engine (perf-lite devices / blocked CDN): CSS-transition
+    // fallback — transform/opacity only, so it stays smooth even there.
     if (!window.gsap) {
       const cs = chatContainer.style;
       if (isOpen) {
         const ping = $('.ai-chat-toggle__ping', toggleBtn);
         if (ping) ping.style.display = 'none';
-        cs.cssText += `display:flex; opacity:1; pointer-events:all;` +
+        cs.cssText += `display:flex; pointer-events:all;` +
           `width:${targetWidth}px; height:${targetHeight}px;` +
           `left:auto; top:auto; bottom:${targetBottom}px; right:${targetRight}px;` +
           `border-radius:${targetBorderRadius};`;
         Array.from(chatContainer.children).forEach((c) => { c.style.opacity = '1'; });
         toggleBtn.style.opacity = '0';
         toggleBtn.style.pointerEvents = 'none';
-        chatInput.focus();
+        chatContainer.classList.add('chat-lite', 'chat-lite--closed');
+        // Double-rAF: the closed state must paint before transitioning out
+        // of it, or the browser skips the animation entirely.
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          chatContainer.classList.remove('chat-lite--closed');
+          chatInput.focus();
+        }));
       } else {
-        cs.display = 'none';
+        chatContainer.classList.add('chat-lite--closed');
         toggleBtn.style.opacity = '1';
         toggleBtn.style.pointerEvents = 'all';
+        setTimeout(() => {
+          if (!isOpen) {
+            cs.display = 'none';
+            chatContainer.classList.remove('chat-lite', 'chat-lite--closed');
+          }
+        }, 320);
       }
       return;
     }
 
+    // FLIP morph: the panel is laid out at its FINAL geometry exactly once,
+    // then the grow/shrink between the button and the panel is pure
+    // transform + opacity — compositor-only, no per-frame layout or paint.
     if (isOpen) {
       // Hide notification ping once opened
       const ping = $('.ai-chat-toggle__ping', toggleBtn);
@@ -73,45 +81,55 @@
       // Kill any in-flight tweens
       gsap.killTweensOf([chatContainer, chatContainer.children, toggleBtn]);
 
-      // Snap the container to button size/position to morph FROM
-      chatContainer.style.left = 'auto';
-      chatContainer.style.top = 'auto';
-      chatContainer.style.bottom = `${initialBottom}px`;
-      chatContainer.style.right = `${initialRight}px`;
-
+      // One-time layout at the final geometry (the only layout this causes)
       gsap.set(chatContainer, {
         display: 'flex',
+        clearProps: 'transform',
+        left: 'auto',
+        top: 'auto',
+        bottom: targetBottom,
+        right: targetRight,
+        width: targetWidth,
+        height: targetHeight,
+        borderRadius: targetBorderRadius,
         opacity: 0,
-        width: toggleW,
-        height: toggleH,
-        bottom: initialBottom,
-        right: initialRight,
-        borderRadius: toggleBR,
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        transformOrigin: 'top left'
       });
-      gsap.set(chatContainer.children, { opacity: 0 });
+
+      const p = chatContainer.getBoundingClientRect();
+      const b = toggleBtn.getBoundingClientRect();
 
       // Hide toggle while chat is open
       gsap.set(toggleBtn, { pointerEvents: 'none', opacity: 0 });
 
-      // Morph expand
-      gsap.to(chatContainer, {
-        width: targetWidth,
-        height: targetHeight,
-        bottom: targetBottom,
-        right: targetRight,
-        borderRadius: targetBorderRadius,
-        opacity: 1,
-        pointerEvents: 'all',
-        duration: 0.45,
-        ease: 'power3.out',
-        onComplete: () => {
-          gsap.fromTo(chatContainer.children,
-            { opacity: 0, y: 12 },
-            { opacity: 1, y: 0, duration: 0.25, stagger: 0.05, ease: 'power2.out', onComplete: () => chatInput.focus() }
-          );
+      gsap.fromTo(chatContainer,
+        {
+          x: b.left - p.left,
+          y: b.top - p.top,
+          scaleX: (b.width || 112) / p.width,
+          scaleY: (b.height || 44) / p.height,
+          opacity: 0
+        },
+        {
+          x: 0, y: 0, scaleX: 1, scaleY: 1, opacity: 1,
+          duration: 0.38,
+          ease: 'power3.out',
+          onComplete: () => {
+            // Clean transform so the drag logic measures an untransformed box
+            gsap.set(chatContainer, { pointerEvents: 'all', clearProps: 'transform' });
+          }
         }
-      });
+      );
+
+      // Content rides along mid-morph instead of waiting for it to finish
+      gsap.fromTo(chatContainer.children,
+        { opacity: 0, y: 10 },
+        {
+          opacity: 1, y: 0, duration: 0.3, delay: 0.14, stagger: 0.04,
+          ease: 'power2.out', onComplete: () => chatInput.focus()
+        }
+      );
 
     } else {
       // Kill any in-flight tweens
@@ -120,50 +138,33 @@
       // Restore toggle immediately
       gsap.set(toggleBtn, { pointerEvents: 'all', opacity: 1 });
 
-      // Fade out chat content, then shrink container back to the button location
-      gsap.to(chatContainer.children, {
+      // Measure from an untransformed box (an interrupted open may have
+      // left a partial transform behind)
+      gsap.set(chatContainer, { pointerEvents: 'none', clearProps: 'transform', transformOrigin: 'top left' });
+      const p = chatContainer.getBoundingClientRect();
+      const b = toggleBtn.getBoundingClientRect();
+
+      // Content fades concurrently with the shrink, not before it —
+      // and FLIP handles a dragged panel automatically (it translates
+      // home to the button from wherever it currently sits).
+      gsap.to(chatContainer.children, { opacity: 0, y: -6, duration: 0.15, ease: 'power2.in' });
+      gsap.to(chatContainer, {
+        x: b.left - p.left,
+        y: b.top - p.top,
+        scaleX: (b.width || 112) / p.width,
+        scaleY: (b.height || 44) / p.height,
         opacity: 0,
-        y: -8,
-        duration: 0.18,
-        ease: 'power2.in',
+        duration: 0.32,
+        ease: 'power3.inOut',
         onComplete: () => {
-          const buttonLeft = window.innerWidth - toggleW - initialRight;
-          const buttonTop = window.innerHeight - toggleH - initialBottom;
-          const isDragged = chatContainer.style.bottom === 'auto';
-
-          const shrinkTargets = {
-            width: toggleW,
-            height: toggleH,
-            borderRadius: toggleBR,
-            opacity: 0,
-            pointerEvents: 'none',
-            duration: 0.42,
-            ease: 'power3.inOut'
-          };
-
-          if (isDragged) {
-            shrinkTargets.left = buttonLeft;
-            shrinkTargets.top = buttonTop;
-          } else {
-            shrinkTargets.bottom = initialBottom;
-            shrinkTargets.right = initialRight;
-          }
-
-          gsap.to(chatContainer, {
-            ...shrinkTargets,
-            onComplete: () => {
-              // Reset container to hidden default state
-              gsap.set(chatContainer, {
-                display: 'none',
-                left: 'auto',
-                top: 'auto',
-                bottom: initialBottom,
-                right: initialRight,
-                width: toggleW,
-                height: toggleH,
-                borderRadius: toggleBR
-              });
-            }
+          // Reset container to hidden default state
+          gsap.set(chatContainer, {
+            display: 'none',
+            clearProps: 'transform',
+            left: 'auto',
+            top: 'auto',
+            bottom: targetBottom,
+            right: targetRight
           });
         }
       });
