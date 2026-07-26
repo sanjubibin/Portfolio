@@ -38,7 +38,7 @@ Then open <http://localhost:8080>. (Runs `npx http-server` — no install needed
 | `style.css` | Liquid-glass design system (tokens, glass recipe, sections, motion, terminal/reader themes) |
 | `app.js` | Renders `config.js` content + all interactions (nav, tilt, gel, reveals, filters, drawers, reader, contact form) |
 | `ai-clone.js` | "Ask AI" chat widget |
-| `cli.js` | Full-screen terminal (portfolio commands + WebAssembly Python REPL via Pyodide) |
+| `cli.js` | Full-screen terminal: registry-driven commands with tab completion, "did you mean", persistent history, site-bridge commands (`theme`, `mode`, `goto`, `open`), `neofetch`, touch quick-command chips, and a multi-line WebAssembly Python REPL via Pyodide |
 | `py-worker.js` | Web Worker hosting the Pyodide runtime off the main thread |
 | `python-course.js` | 8-chapter reader course content (lazy-loaded on first open) |
 | `config.js` | **Your content** |

@@ -720,6 +720,11 @@
       });
     };
 
+    // Terminal bridge: lets CLI commands ("theme emerald", "mode dark")
+    // drive the theme system.
+    window.setThemePreset = applyTheme;
+    window.setColorMode = applyMode;
+
     // Load saved theme on boot
     const savedTheme = localStorage.getItem('portfolio-theme-preset') || 'aurora';
     applyTheme(savedTheme);
@@ -1348,6 +1353,9 @@
       open: () => { if (lastProjectTitle) openDrawer(lastProjectTitle); },
       close: closeDrawer,
     });
+
+    // Terminal bridge: lets "open project N" drive the drawer.
+    window.openProjectDrawer = openDrawer;
 
     // Bind explorer click delegation on grid
     const grid = $('#projects-grid');
