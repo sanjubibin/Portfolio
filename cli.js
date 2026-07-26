@@ -20,7 +20,6 @@
   // Active input element (changes every time a new prompt is created)
   let cliInput = null;
 
-  let pyodideInstance = null;
   let isPythonRepl = false;
 
   const shellHistory = [];
@@ -34,16 +33,6 @@
     const username = (CONFIG.terminalPrompt && CONFIG.terminalPrompt.username) || 'visitor';
     const hostname = (CONFIG.terminalPrompt && CONFIG.terminalPrompt.hostname) || 'portfolio';
     titleEl.textContent = `${username}@${hostname}: ~`;
-  }
-
-  function loadScript(url) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = url;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
   }
 
   // ------------------------------------------------------------- append helpers
@@ -68,14 +57,14 @@
     // 1. Comments
     temp = temp.replace(/(#.*)$/g, (match) => {
       const id = `___PY_TOKEN_COMMENT_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#64748b; font-style:italic;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:var(--cli-comment); font-style:italic;">${match}</span>` });
       return id;
     });
 
     // 2. Strings
     temp = temp.replace(/("(?:\\"|[^"])*"|'(?:\\'|[^'])*')/g, (match) => {
       const id = `___PY_TOKEN_STRING_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#16a34a;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:var(--cli-green);">${match}</span>` });
       return id;
     });
 
@@ -89,7 +78,7 @@
     const keywordsRegex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g');
     temp = temp.replace(keywordsRegex, (match) => {
       const id = `___PY_TOKEN_KEY_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#9333ea; font-weight:700;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:var(--cli-purple); font-weight:700;">${match}</span>` });
       return id;
     });
 
@@ -102,21 +91,21 @@
     const builtinsRegex = new RegExp(`\\b(${builtins.join('|')})\\b`, 'g');
     temp = temp.replace(builtinsRegex, (match) => {
       const id = `___PY_TOKEN_BUILT_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#0284c7; font-weight:600;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:var(--cli-blue); font-weight:600;">${match}</span>` });
       return id;
     });
 
     // 5. Functions
     temp = temp.replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\s*\()/g, (match) => {
       const id = `___PY_TOKEN_FUNC_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#a16207;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:var(--cli-amber);">${match}</span>` });
       return id;
     });
 
     // 6. Numbers
     temp = temp.replace(/\b(\d+(?:\.\d+)?)\b/g, (match) => {
       const id = `___PY_TOKEN_NUM_${placeholders.length}___`;
-      placeholders.push({ id, html: `<span style="color:#c2410c;">${match}</span>` });
+      placeholders.push({ id, html: `<span style="color:var(--cli-orange);">${match}</span>` });
       return id;
     });
 
@@ -139,11 +128,11 @@
     
     if (isPythonRepl) {
       promptSpan.textContent = '>>> ';
-      promptSpan.style.color = '#0284c7';
+      promptSpan.style.color = 'var(--cli-blue)';
     } else {
       const username = (CONFIG.terminalPrompt && CONFIG.terminalPrompt.username) || 'visitor';
       const hostname = (CONFIG.terminalPrompt && CONFIG.terminalPrompt.hostname) || 'portfolio';
-      promptSpan.innerHTML = `<span style="color:#16a34a; font-weight:bold;">${esc(username)}@${esc(hostname)}</span>:<span style="color:#2563eb; font-weight:bold;">~</span>$`;
+      promptSpan.innerHTML = `<span style="color:var(--cli-green); font-weight:bold;">${esc(username)}@${esc(hostname)}</span>:<span style="color:var(--cli-link); font-weight:bold;">~</span>$`;
       promptSpan.style.color = '';
     }
 
@@ -183,7 +172,7 @@
       } else {
         const commandRegex = /^(help|about|skills|projects|experience|contact|clear|python)\b/;
         if (commandRegex.test(val)) {
-          overlay.innerHTML = val.replace(commandRegex, '<span style="color:#9333ea; font-weight:bold;">$1</span>');
+          overlay.innerHTML = val.replace(commandRegex, '<span style="color:var(--cli-purple); font-weight:bold;">$1</span>');
         } else {
           overlay.textContent = val;
         }
@@ -290,7 +279,7 @@
         } else {
           const commandRegex = /^(help|about|skills|projects|experience|contact|clear|python)\b/;
           if (commandRegex.test(text)) {
-            typed.innerHTML = text.replace(commandRegex, '<span style="color:#9333ea; font-weight:bold;">$1</span>');
+            typed.innerHTML = text.replace(commandRegex, '<span style="color:var(--cli-purple); font-weight:bold;">$1</span>');
           } else {
             typed.textContent = text;
             typed.style.color = 'var(--ink-hi)';
@@ -314,9 +303,16 @@
 
   // ------------------------------------------------------------- toggle terminal
   function toggleCLI(force) {
-    const isOpen = force !== undefined ? force : !cliTerminal.classList.contains('is-open');
+    const wasOpen = cliTerminal.classList.contains('is-open');
+    const isOpen = force !== undefined ? force : !wasOpen;
     cliTerminal.classList.toggle('is-open', isOpen);
     document.body.classList.toggle('cli-active', isOpen);
+
+    // Back button closes the terminal; Forward re-opens it (see app.js).
+    if (window.OverlayHistory) {
+      if (isOpen && !wasOpen) window.OverlayHistory.opened('terminal');
+      if (!isOpen && wasOpen) window.OverlayHistory.closed('terminal');
+    }
 
     if (isOpen) {
       // Only create the first prompt once
@@ -326,6 +322,13 @@
         setTimeout(() => cliInput && cliInput.focus(), 150);
       }
     }
+  }
+
+  if (window.OverlayHistory) {
+    window.OverlayHistory.register('terminal', {
+      open: () => toggleCLI(true),
+      close: () => toggleCLI(false),
+    });
   }
 
   cliBtn.addEventListener('click', () => toggleCLI());
@@ -339,6 +342,16 @@
     }
     if (e.key === 'Escape' && cliTerminal.classList.contains('is-open')) {
       toggleCLI(false);
+    }
+    // Ctrl+C (SIGINT): kill a runaway Python execution. Window-level on
+    // purpose — the live input is removed from the DOM while a command
+    // runs. Skipped when text is selected so normal copying still works.
+    if (e.ctrlKey && e.key.toLowerCase() === 'c' &&
+        cliTerminal.classList.contains('is-open') &&
+        window.PyRuntime && window.PyRuntime.busy() &&
+        !String(window.getSelection && getSelection()).length) {
+      e.preventDefault();
+      window.PyRuntime.terminate();
     }
   });
 
@@ -371,12 +384,16 @@
       if (!rawText) return;
 
       try {
-        let result = await pyodideInstance.runPythonAsync(cmdText);
+        let result = await window.PyRuntime.run(
+          cmdText,
+          (text) => logOutput(esc(text)),
+          (text) => logOutput(`<span style="color:var(--cli-red);">${esc(text)}</span>`)
+        );
         if (result !== undefined && result !== null && String(result) !== '') {
           logOutput(esc(String(result)));
         }
       } catch (err) {
-        logOutput(`<span style="color:#dc2626;">${esc(err.message)}</span>`);
+        logOutput(`<span style="color:var(--cli-red);">${esc(err.message)}</span>`);
       }
       return;
     }
@@ -419,26 +436,22 @@
 
       if (isPythonRepl) return;
 
-      if (!pyodideInstance) {
-        try {
-          if (typeof loadPyodide === 'undefined') {
-            await loadScript('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
-          }
-          
-          pyodideInstance = await loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
-            stdout: (text) => logOutput(esc(text)),
-            stderr: (text) => logOutput(`<span style="color:#dc2626;">${esc(text)}</span>`)
-          });
-        } catch (err) {
-          logOutput(`<span style="color:#dc2626;">Failed to load Pyodide: ${esc(err.message)}</span>`);
-          return;
-        }
+      // Boot the runtime on its background thread (see py-worker.js) —
+      // the page stays fully interactive while WASM downloads/compiles.
+      try {
+        logOutput('[python] Booting WebAssembly runtime on a worker thread...');
+        await window.PyRuntime.warm(
+          (text) => logOutput(esc(text)),
+          (text) => logOutput(`<span style="color:var(--cli-red);">${esc(text)}</span>`)
+        );
+      } catch (err) {
+        logOutput(`<span style="color:var(--cli-red);">Failed to load Pyodide: ${esc(err.message)}</span>`);
+        return;
       }
 
       isPythonRepl = true;
       logOutput(`Python 3.12.1 (main, WebAssembly)
-Type "exit()" or "quit()" to return to the host terminal shell.`);
+Type "exit()" or "quit()" to return to the host terminal shell. Ctrl+C interrupts a running command.`);
       return;
     }
 
@@ -449,33 +462,18 @@ Type "exit()" or "quit()" to return to the host terminal shell.`);
 
       if (sub === 'install' && pkg) {
         logOutput(`[pip] Initializing WebAssembly package manager...`);
-        
-        // 1. Ensure Pyodide is loaded
-        if (!pyodideInstance) {
-          try {
-            if (typeof loadPyodide === 'undefined') {
-              await loadScript('https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js');
-            }
-            pyodideInstance = await loadPyodide({
-              indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/',
-              stdout: (text) => logOutput(esc(text)),
-              stderr: (text) => logOutput(`<span style="color:#dc2626;">${esc(text)}</span>`)
-            });
-          } catch (err) {
-            logOutput(`<span style="color:#dc2626;">[pip] Failed to initialize WebAssembly: ${esc(err.message)}</span>`);
-            return;
-          }
-        }
 
-        // 2. Install package using Pyodide micropip
+        // micropip runs on the worker thread — the page never blocks.
         try {
           logOutput(`[pip] Querying PyPI and downloading ${esc(pkg)}...`);
-          await pyodideInstance.loadPackage('micropip');
-          const micropip = pyodideInstance.pyimport('micropip');
-          await micropip.install(pkg);
-          logOutput(`<span style="color:#16a34a;">[pip] Successfully installed ${esc(pkg)} inside the WebAssembly environment.</span>`);
+          await window.PyRuntime.pip(
+            pkg,
+            (text) => logOutput(esc(text)),
+            (text) => logOutput(`<span style="color:var(--cli-red);">${esc(text)}</span>`)
+          );
+          logOutput(`<span style="color:var(--cli-green);">[pip] Successfully installed ${esc(pkg)} inside the WebAssembly environment.</span>`);
         } catch (err) {
-          logOutput(`<span style="color:#dc2626;">[pip] Installation failed: ${esc(err.message)}</span>`);
+          logOutput(`<span style="color:var(--cli-red);">[pip] Installation failed: ${esc(err.message)}</span>`);
         }
         return;
       }
@@ -564,3 +562,6 @@ ${instagramLine}`;
     logOutput(`shell: command not found: ${esc(cmd)}. Type <strong>help</strong> for a list of commands.`);
   }
 })();
+
+// Signals the lazy-load stub in app.js that this module now owns its surface.
+window.__CLI_BOOTED = true;

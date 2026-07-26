@@ -394,3 +394,6 @@
     return html;
   }
 })();
+
+// Signals the lazy-load stub in app.js that this module now owns its surface.
+window.__AI_BOOTED = true;

@@ -21,8 +21,8 @@ const CONFIG = {
     },
     // Quiet proof line under the hero CTAs — concrete results, not adjectives.
     proofLine: ["Custom MCP servers", "Audited Solidity contracts", "35% faster APIs"],
-    // Optional portrait image. Leave empty to show the initials monogram.
-    // (profile.jpg is the 320px web-optimized copy; profile.png is the original)
+    // Optional portrait image (320px web-optimized). Leave empty to show
+    // the initials monogram.
     avatarUrl: "Files/profile.jpg",
     location: "Tamil Nadu, India",
     about: "I am a backend developer transitioning into full-stack engineering, with a strong foundation in building scalable server-side systems and a passion for AI-driven development. I specialize in leveraging advanced LLM chatbots, Claude Code, and antigravity to optimize workflows and construct intelligent, interactive user experiences.",

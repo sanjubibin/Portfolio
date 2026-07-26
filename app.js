@@ -303,6 +303,222 @@
     }
   }
 
+  // -------------------------------------- overlay history (Back / Forward)
+  // Full-screen surfaces (terminal, drawers, reader, resume viewer) push a
+  // history entry when they open, so the browser / phone-gesture Back
+  // closes them instead of leaving the site, and Forward re-opens them.
+  // Dropdown menus and small modals stay out of history on purpose.
+  // This module's popstate listener registers before initNav()'s, and
+  // initNav's hash-scroll handler yields via tookLastPop() whenever a pop
+  // belonged to an overlay.
+  const OverlayHistory = (() => {
+    const openers = {};
+    const closers = {};
+    const stack = [];       // overlays currently holding a history entry
+    const seen = new Set(); // opened this session — never revive stale entries after a reload
+    let suppress = 0;       // pops we triggered ourselves via history.back()
+    let reopening = false;  // Forward-reopen in progress: opened() must not re-push
+    let replaceNextOpen = false;
+    let lastPopHandled = false;
+
+    window.addEventListener('popstate', (e) => {
+      if (suppress > 0) {
+        suppress--;
+        lastPopHandled = true;
+        return;
+      }
+      const entering = e.state && e.state.overlay;
+      const top = stack[stack.length - 1];
+
+      if (top && entering !== top) {
+        // Back crossed our newest entry: close that overlay.
+        stack.pop();
+        lastPopHandled = true;
+        if (closers[top]) closers[top]();
+        return;
+      }
+      if (entering && entering !== top && seen.has(entering) && openers[entering]) {
+        // Forward onto an overlay entry created this session: re-open it.
+        stack.push(entering);
+        lastPopHandled = true;
+        reopening = true;
+        openers[entering]();
+        reopening = false;
+      }
+    });
+
+    return {
+      // Wire an overlay in. `open` re-opens it on Forward; `close` hides it
+      // on Back (a visual-only close — it may safely call closed() again,
+      // which no-ops once the entry is consumed).
+      register(name, fns) {
+        openers[name] = fns.open;
+        closers[name] = fns.close;
+      },
+      // Call when the overlay opens through its own UI.
+      opened(name) {
+        if (reopening) return;
+        seen.add(name);
+        if (replaceNextOpen) {
+          // Hand-off (e.g. guides drawer -> reader): reuse the entry so one
+          // Back press leaves the whole flow.
+          replaceNextOpen = false;
+          stack.pop();
+          stack.push(name);
+          history.replaceState({ overlay: name }, '');
+        } else {
+          stack.push(name);
+          history.pushState({ overlay: name }, '');
+        }
+      },
+      // Call when the overlay closes through its own UI (Esc / close button /
+      // backdrop): consume the entry so Back doesn't need a dead press.
+      closed(name) {
+        const i = stack.lastIndexOf(name);
+        if (i === -1) return; // already consumed (closed via Back)
+        stack.splice(i, 1);
+        suppress++;
+        history.back();
+      },
+      // The next opened() replaces the current overlay entry instead of pushing.
+      replaceNext() { replaceNextOpen = true; },
+      // One-shot: did the last popstate belong to an overlay?
+      tookLastPop() {
+        const v = lastPopHandled;
+        lastPopHandled = false;
+        return v;
+      },
+    };
+  })();
+  // cli.js (loaded after this file) registers the terminal through this.
+  window.OverlayHistory = OverlayHistory;
+
+  // ------------------------------------------- Python runtime (Web Worker)
+  // Pyodide lives in py-worker.js on a background thread: heavy Python
+  // execution can never freeze the UI. Requests are serialized (one at a
+  // time) so stdout/stderr always belongs to the in-flight request.
+  // Shared by the reader playgrounds here and the terminal REPL (cli.js).
+  const PyRuntime = (() => {
+    let worker = null;
+    let seq = 0;
+    const pending = new Map(); // id -> { resolve, reject, onOut, onErr }
+    let current = 0;           // id whose stdout/stderr is streaming
+    let queue = Promise.resolve();
+
+    function ensureWorker() {
+      if (worker) return worker;
+      worker = new Worker('py-worker.js');
+      worker.onmessage = (e) => {
+        const m = e.data;
+        if (m.type === 'stdout' || m.type === 'stderr') {
+          const req = pending.get(current);
+          if (req) (m.type === 'stdout' ? req.onOut : req.onErr)(m.text);
+          return;
+        }
+        const req = pending.get(m.id);
+        if (!req) return;
+        pending.delete(m.id);
+        if (m.type === 'error') req.reject(new Error(m.message));
+        else req.resolve(m.value !== undefined ? m.value : null);
+      };
+      worker.onerror = () => {
+        // Worker crashed (e.g. CDN failure inside importScripts): fail
+        // everything pending and start cold next time.
+        pending.forEach((req) => req.reject(new Error('Python runtime failed to start.')));
+        pending.clear();
+        worker = null;
+      };
+      return worker;
+    }
+
+    function request(msg, onOut, onErr) {
+      const run = () => new Promise((resolve, reject) => {
+        const id = ++seq;
+        current = id;
+        pending.set(id, {
+          resolve,
+          reject,
+          onOut: onOut || (() => {}),
+          onErr: onErr || onOut || (() => {}),
+        });
+        ensureWorker().postMessage(Object.assign({ id }, msg));
+      });
+      const p = queue.then(run, run);
+      queue = p.catch(() => {});
+      return p;
+    }
+
+    return {
+      warm: (onOut, onErr) => request({ type: 'init' }, onOut, onErr),
+      run: (code, onOut, onErr) => request({ type: 'run', code }, onOut, onErr),
+      pip: (pkg, onOut, onErr) => request({ type: 'pip', pkg }, onOut, onErr),
+      busy: () => pending.size > 0,
+      // Kill a runaway execution (Ctrl+C in the REPL): pending requests
+      // reject and the runtime restarts cold on the next request.
+      terminate: () => {
+        if (!worker) return;
+        worker.terminate();
+        worker = null;
+        pending.forEach((req) => req.reject(new Error('KeyboardInterrupt: execution terminated, runtime restarted')));
+        pending.clear();
+        queue = Promise.resolve();
+      },
+    };
+  })();
+  window.PyRuntime = PyRuntime;
+
+  // --------------------------------------------------------- lazy surfaces
+  // Per-surface code splitting: the terminal (cli.js), the AI chat
+  // (ai-clone.js) and the Python course content (python-course.js) are NOT
+  // loaded up front — each arrives the first time its surface is opened.
+  // A translucent veil with the loader ring appears only when a fetch
+  // takes longer than ~150ms, so cached loads never flash.
+  const LazySurface = (() => {
+    const loading = new Map(); // src -> Promise
+    let veilEl = null;
+
+    function veil(on) {
+      if (!veilEl) {
+        veilEl = document.createElement('div');
+        veilEl.className = 'surface-loader';
+        veilEl.setAttribute('role', 'status');
+        veilEl.setAttribute('aria-label', 'Loading');
+        veilEl.innerHTML = '<div class="page-loader__ring" aria-hidden="true"></div>';
+        document.body.appendChild(veilEl);
+      }
+      veilEl.classList.toggle('is-on', on);
+    }
+
+    function load(src) {
+      if (!loading.has(src)) {
+        loading.set(src, new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = () => {
+            loading.delete(src); // allow a retry on the next attempt
+            reject(new Error(src + ' failed to load'));
+          };
+          document.head.appendChild(s);
+        }));
+      }
+      return loading.get(src);
+    }
+
+    async function withVeil(src) {
+      let shown = false;
+      const timer = setTimeout(() => { shown = true; veil(true); }, 150);
+      try {
+        return await load(src);
+      } finally {
+        clearTimeout(timer);
+        if (shown) veil(false);
+      }
+    }
+
+    return { load, withVeil };
+  })();
+
   function initNav() {
     // Disable automatic browser scroll restoration on refresh/navigate
     if (history.scrollRestoration) {
@@ -355,6 +571,8 @@
 
     // Handle browser Back/Forward navigation smoothly
     window.addEventListener('popstate', () => {
+      // Pops that opened/closed an overlay are not scroll navigations.
+      if (OverlayHistory.tookLastPop()) return;
       const hash = window.location.hash || '#hero';
       const target = document.querySelector(hash);
       if (target) {
@@ -401,6 +619,7 @@
       const show = open !== undefined ? open : !dropdown.classList.contains('is-open');
       dropdown.classList.toggle('is-open', show);
       dropdown.setAttribute('aria-hidden', String(!show));
+      btn.setAttribute('aria-expanded', String(show));
 
       // Close all submenus when closing the main dropdown
       if (!show) {
@@ -412,10 +631,11 @@
       }
     };
 
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleDropdown();
-    });
+    // No stopPropagation: letting the click bubble means the theme
+    // dropdown's outside-click handler closes it — only one nav dropdown
+    // stays open at a time. Our own outside-click check below ignores
+    // clicks inside this wrapper, so the fresh toggle survives.
+    btn.addEventListener('click', () => toggleDropdown());
 
     // Submenu click toggles
     dropdown.addEventListener('click', (e) => {
@@ -445,6 +665,79 @@
     // Close when clicking outside
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#blog-nav-wrapper')) {
+        toggleDropdown(false);
+      }
+    });
+
+    // Close on Escape key
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        toggleDropdown(false);
+      }
+    });
+  }
+
+  function initThemeSwitcher() {
+    const modeBtn = $('#theme-nav-btn');   // palette logo: dark/light toggle
+    const caretBtn = $('#theme-caret-btn'); // caret: opens the preset menu
+    const dropdown = $('#theme-dropdown');
+    if (!caretBtn || !dropdown) return;
+
+    const toggleDropdown = (open) => {
+      const show = open !== undefined ? open : !dropdown.classList.contains('is-open');
+      dropdown.classList.toggle('is-open', show);
+      dropdown.setAttribute('aria-hidden', String(!show));
+      caretBtn.setAttribute('aria-expanded', String(show));
+    };
+
+    // Bubbles on purpose — see the matching note in initBlogDropdown().
+    caretBtn.addEventListener('click', () => toggleDropdown());
+
+    // Dark / light mode: orthogonal to the color presets. The boot script
+    // in <head> restores the saved mode before first paint; here we only
+    // toggle and persist it.
+    const applyMode = (mode) => {
+      document.documentElement.classList.toggle('mode-dark', mode === 'dark');
+      localStorage.setItem('portfolio-color-mode', mode);
+      if (modeBtn) modeBtn.setAttribute('aria-pressed', String(mode === 'dark'));
+    };
+    if (modeBtn) {
+      modeBtn.setAttribute('aria-pressed', String(document.documentElement.classList.contains('mode-dark')));
+      modeBtn.addEventListener('click', () => {
+        applyMode(document.documentElement.classList.contains('mode-dark') ? 'light' : 'dark');
+      });
+    }
+
+    const applyTheme = (themeName) => {
+      const doc = document.documentElement;
+      doc.classList.remove('theme-aurora', 'theme-emerald', 'theme-solar', 'theme-ruby', 'theme-obsidian');
+      doc.classList.add(`theme-${themeName}`);
+
+      localStorage.setItem('portfolio-theme-preset', themeName);
+
+      $$('#theme-dropdown .theme-option').forEach(opt => {
+        opt.classList.toggle('is-active', opt.dataset.theme === themeName);
+      });
+    };
+
+    // Load saved theme on boot
+    const savedTheme = localStorage.getItem('portfolio-theme-preset') || 'aurora';
+    applyTheme(savedTheme);
+
+    // Click handler for theme options
+    dropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.theme-option');
+      if (option) {
+        e.stopPropagation();
+        const selected = option.dataset.theme;
+        applyTheme(selected);
+        toggleDropdown(false);
+      }
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#theme-nav-wrapper')) {
         toggleDropdown(false);
       }
     });
@@ -887,13 +1180,14 @@
     const closeBtn = $('#project-drawer-close');
     if (!drawer || !overlay || !closeBtn) return;
 
-    function openDrawer(projectTitle) {
-      const p = (CONFIG.projects || []).find((x) => x.title === projectTitle);
-      if (!p) return;
+    let lastProjectTitle = null; // lets Forward re-open the same project
 
-      // Set Title
-      $('#drawer-title').textContent = p.title;
+    // Each project's detail panel is built ONCE as a detached node (the
+    // innerHTML parse is the expensive part on phone CPUs) — ideally at
+    // browser idle, before the user ever taps Explore Details.
+    const panelCache = new Map(); // title -> { node, wired }
 
+    function buildPanel(p) {
       // Build Body Content
       let bodyHtml = `
         <div class="drawer-section">
@@ -983,17 +1277,63 @@
         `;
       }
 
-      $('#drawer-body').innerHTML = bodyHtml;
+      const node = document.createElement('div');
+      node.style.display = 'contents'; // children join the body's flex layout
+      node.innerHTML = bodyHtml;
+      return { node, wired: false };
+    }
 
-      // Open Panel
-      drawer.classList.add('is-open');
-      overlay.classList.add('is-open');
-      drawer.setAttribute('aria-hidden', 'false');
-      overlay.setAttribute('aria-hidden', 'false');
-      
-      // Wire up special play handlers if injected
-      if (p.title === "Model Context Protocol & Custom AI Chatbot Server") initMCPPlayground();
-      if (p.title === "Decentralized Asset Tokenization Platform") initDAppSandbox();
+    function getPanel(p) {
+      let entry = panelCache.get(p.title);
+      if (!entry) {
+        entry = buildPanel(p);
+        panelCache.set(p.title, entry);
+      }
+      return entry;
+    }
+
+    // Pre-parse every panel while the browser is idle so even the first
+    // open skips the parse cost.
+    const prebuildPanels = () => (CONFIG.projects || []).forEach(getPanel);
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(prebuildPanels, { timeout: 3000 });
+    } else {
+      setTimeout(prebuildPanels, 2000);
+    }
+
+    function openDrawer(projectTitle) {
+      const p = (CONFIG.projects || []).find((x) => x.title === projectTitle);
+      if (!p) return;
+      lastProjectTitle = projectTitle;
+
+      // Set Title
+      $('#drawer-title').textContent = p.title;
+
+      const entry = getPanel(p);
+      const body = $('#drawer-body');
+      if (body.firstChild !== entry.node) body.replaceChildren(entry.node);
+
+      // Open on a double-rAF: the attached panel finishes style/layout
+      // BEFORE the slide starts, so the transition frames stay clean.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        drawer.classList.add('is-open');
+        overlay.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        overlay.setAttribute('aria-hidden', 'false');
+        OverlayHistory.opened('project-drawer');
+
+        // Wire the interactive playgrounds once per project, after the
+        // slide has settled so its frames stay clean. Listeners live on
+        // the cached node, so they survive detach/re-attach.
+        if (!entry.wired) {
+          setTimeout(() => {
+            if (!body.contains(entry.node)) return; // closed too fast — retry next open
+            entry.wired = true;
+            if (p.title === "Model Context Protocol & Custom AI Chatbot Server") initMCPPlayground();
+            if (p.title === "Decentralized Asset Tokenization Platform") initDAppSandbox();
+          }, 500);
+        }
+      }));
     }
 
     function closeDrawer() {
@@ -1001,7 +1341,13 @@
       overlay.classList.remove('is-open');
       drawer.setAttribute('aria-hidden', 'true');
       overlay.setAttribute('aria-hidden', 'true');
+      OverlayHistory.closed('project-drawer');
     }
+
+    OverlayHistory.register('project-drawer', {
+      open: () => { if (lastProjectTitle) openDrawer(lastProjectTitle); },
+      close: closeDrawer,
+    });
 
     // Bind explorer click delegation on grid
     const grid = $('#projects-grid');
@@ -1043,25 +1389,34 @@
       overlay.classList.add('is-open');
       drawer.setAttribute('aria-hidden', 'false');
       overlay.setAttribute('aria-hidden', 'false');
-      
+
       // Reset to Level 1
       slider.style.transform = 'translateX(0)';
       document.body.style.overflow = 'hidden'; // Lock background scroll
+      OverlayHistory.opened('guides-drawer');
     }
 
-    function closeGuidesDrawer() {
+    // skipHistory: the reader hand-off closes the drawer visually but keeps
+    // the history entry — the reader takes it over via replaceNext().
+    function closeGuidesDrawer(skipHistory) {
       drawer.classList.remove('is-open');
       overlay.classList.remove('is-open');
       drawer.setAttribute('aria-hidden', 'true');
       overlay.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = ''; // Restore background scroll
+      if (skipHistory !== true) OverlayHistory.closed('guides-drawer');
     }
 
     // Expose openGuidesDrawer globally so it can be called from blog dropdown click
     window.openGuidesDrawer = openGuidesDrawer;
 
-    closeBtn.addEventListener('click', closeGuidesDrawer);
-    overlay.addEventListener('click', closeGuidesDrawer);
+    OverlayHistory.register('guides-drawer', {
+      open: openGuidesDrawer,
+      close: closeGuidesDrawer,
+    });
+
+    closeBtn.addEventListener('click', () => closeGuidesDrawer());
+    overlay.addEventListener('click', () => closeGuidesDrawer());
 
     // Escape Key closes guides drawer
     window.addEventListener('keydown', (e) => {
@@ -1084,225 +1439,27 @@
       });
     }
 
-    // Launch Python from Scratch Reader
+    // Launch Python from Scratch Reader — the reader takes over the guides
+    // drawer's history entry so a single Back press exits the whole flow.
     if (btnPython) {
       btnPython.addEventListener('click', () => {
-        closeGuidesDrawer();
+        closeGuidesDrawer(true);
+        OverlayHistory.replaceNext();
         openPythonReader();
       });
     }
   }
 
-  // Interactive Python learning chapters database
-  const PYTHON_CHAPTERS = [
-    {
-      title: "1. Syntax & Indentation",
-      subtitle: "Aligning the System",
-      category: "Syntax & Indentation",
-      content: `
-        <p>In most programming languages, curly brackets <code>{}</code> are used to group blocks of code. Python does not use brackets; instead, it relies entirely on <strong>whitespace indentation</strong> (usually 4 spaces) to define execution hierarchy.</p>
-        <h2>The Alignment Analogy</h2>
-        <p>Think of indentation in Python like aligning keyways on a rotational shaft. If a keyway is misaligned by even half a millimeter, the assembly binds, and the machine crashes. Similarly, if your indentation is off in Python, the interpreter raises an <code>IndentationError</code> and halts execution.</p>
-        <pre># CORRECT: The block sits inside the check
-if pressure > 100:
-    print("Release relief valve!") # Indented 4 spaces
+  // Visual-only close, shared by the close button and the Back-button path.
+  function closeReaderVisual() {
+    const reader = $('#learning-reader');
+    if (!reader) return;
+    reader.classList.remove('is-active');
+    reader.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = ''; // Restore background scroll
+  }
 
-# INCORRECT: This raises an IndentationError!
-if pressure > 100:
-print("Release relief valve!") # No indentation!</pre>
-        <p>Indentations tell Python which lines belong to a specific conditional branch, loop cycle, or functional block. Maintain correct alignment to keep your software engine running smoothly!</p>
-      `
-    },
-    {
-      title: "2. Variables & Casting",
-      subtitle: "Data Storage Tanks & Converters",
-      category: "Variables & Casting",
-      content: `
-        <p>Variables in Python are created dynamically when you assign a value to them using the assignment operator <code>=</code>. Unlike statically typed languages, you do not need to pre-declare their data capacity.</p>
-        <h2>The Storage Tank Analogy</h2>
-        <p>Think of a variable as a <strong>storage tank</strong>. By typing <code>pressure = 120</code>, you create a tank named <code>pressure</code> and fill it with the value <code>120</code>. You can change this fluid at any point in the cycle: <code>pressure = "Decompressed"</code>.</p>
-        <h2>Data Casting (Modifying Flow Types)</h2>
-        <p>Sometimes you need to convert data from one state to another (casting). This is like running a fluid through a converter valve:
-        <ul>
-          <li><code>int(x)</code> - Converts a value to a solid whole number.</li>
-          <li><code>float(x)</code> - Converts a value to a precise decimal measurement.</li>
-          <li><code>str(x)</code> - Converts a value to text format.</li>
-        </ul>
-        </p>
-        <pre>temp_sensor = "98.6" # Text string
-numeric_temp = float(temp_sensor) # Casts to 98.6 (decimal float)</pre>
-        <h2>Variable Scope (Local vs. Global)</h2>
-        <p>Variables declared inside a function are <strong>local</strong> (only accessible within that local subsystem). Variables declared in the main script are <strong>global</strong> (accessible by any subsystem across the main application). Use the <code>global</code> keyword to modify a global variable from inside a local subsystem.</p>
-      `
-    },
-    {
-      title: "3. Data Types & Booleans",
-      subtitle: "Materials & Binary Switches",
-      category: "Data Types & Booleans",
-      content: `
-        <p>Every variable holds a specific data type. Understanding your data types is like selecting the correct engineering materials for a mechanical structure.</p>
-        <h2>Core Python Materials</h2>
-        <ul>
-          <li><strong>Int / Float (Integers / Decimals):</strong> Used for dimensions, sensor readings, and math operations.</li>
-          <li><strong>Str (Strings / Text):</strong> Text characters wrapped in quotes, used for log messages or serial commands.</li>
-          <li><strong>Bool (Booleans / Binary Switches):</strong> Holds either <code>True</code> or <code>False</code>.</li>
-        </ul>
-        <h2>The Boolean Analogy</h2>
-        <p>Booleans are simple binary toggles. Think of them like a limit switch on a linear actuator: either the actuator has hit the limit switch (<code>True</code>) or it hasn't (<code>False</code>). There is no middle ground.</p>
-        <pre>actuator_active = True
-safety_tripped = False</pre>
-        <h2>String Slicing & Formatting</h2>
-        <p>You can extract segments of a text string (slicing) using index ranges <code>[start:end]</code>, or format strings dynamically using f-strings (prefixed with <code>f</code>) to inject variables directly into messages:</p>
-        <pre>serial_code = "ERR_OVERTEMP_95C"
-err_type = serial_code[0:3] # Extracts "ERR"
-curr_temp = 98.2
-status_log = f"System Report: {curr_temp}°C" # Injects curr_temp</pre>
-      `
-    },
-    {
-      title: "4. Operators & Logical Gears",
-      subtitle: "Mathematical & Relational Interactions",
-      category: "Operators",
-      content: `
-        <p>Operators are the symbols used to perform calculations, comparison gates, and logical routing checks in your system.</p>
-        <h2>Mathematical Operators (Gears & Accelerators)</h2>
-        <p>Standard math operators perform calculations on variables:
-        <ul>
-          <li><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> - Addition, subtraction, multiplication, division.</li>
-          <li><code>%</code> (Modulus) - Returns the remainder of division (useful for repeating cycles).</li>
-          <li><code>**</code> (Exponentiation) - Raises a number to a power.</li>
-        </ul>
-        </p>
-        <h2>Comparison Gates (Check Valves)</h2>
-        <p>Comparison operators return a Boolean (<code>True</code> or <code>False</code>) by comparing values:
-        <ul>
-          <li><code>==</code> (Equal to), <code>!=</code> (Not equal to)</li>
-          <li><code>></code> (Greater than), <code><</code> (Less than)</li>
-          <li><code>>=</code>, <code><=</code> (Greater than or equal to, Less than or equal to)</li>
-        </ul>
-        </p>
-        <h2>Logical Operators (Compound Valves)</h2>
-        <p>Combine multiple checks to route logic flows:
-        <ul>
-          <li><code>and</code> - Returns <code>True</code> if both pathways are active.</li>
-          <li><code>or</code> - Returns <code>True</code> if at least one pathway is active.</li>
-          <li><code>not</code> - Reverses the input signal (inverts <code>True</code> to <code>False</code>).</li>
-        </ul>
-        <pre># True only if temperature is safe AND pressure is stable
-system_safe = (temp < 100) and (pressure <= 120)</pre>
-      `
-    },
-    {
-      title: "5. Lists & Collections",
-      subtitle: "Conveyor Belts & Catalog Indexes",
-      category: "Collections",
-      content: `
-        <p>Python offers four built-in collection types to store lists of variables in a single database. Selecting the correct collection is like choosing the appropriate material handling system.</p>
-        <h2>The Four Collection Mechanisms</h2>
-        <ul>
-          <li><strong>List (Conveyor Belt):</strong> Ordered, changeable, and indexable. It can hold duplicates. You can append, remove, or sort items on the fly.</li>
-          <li><strong>Tuple (Fixed Bracket):</strong> Ordered but immutable (cannot be altered after creation). Useful for coordinate sets or fixed configuration constants.</li>
-          <li><strong>Set (Sorting Bin):</strong> Unordered and unindexed. No duplicate entries allowed. Perfect for filtering out duplicate serial codes.</li>
-          <li><strong>Dictionary (Part Catalog):</strong> Unordered, changeable, and indexed using key-value pairs. You look up a specific item using its unique label instead of an index number.</li>
-        </ul>
-        <h2>The Dictionary Analogy</h2>
-        <p>Think of a Dictionary like a parts catalog drawer. Instead of searching by shelf number (index), you search by the part name (key) to get its specifications (value).</p>
-        <pre># Creating a dictionary of parts
-part_catalog = {
-    "sku_120": "Rotary Gear 40mm",
-    "sku_155": "Stainless Steel Bolt",
-    "sku_210": "Hydraulic Seal"
-}
-
-# Accessing a value by its key
-selected_part = part_catalog["sku_155"] # Returns "Stainless Steel Bolt"</pre>
-      `
-    },
-    {
-      title: "6. Conditionals (If...Else)",
-      subtitle: "Directional Routing Valves",
-      category: "Conditionals",
-      content: `
-        <p>Conditional statements allow your software system to make choices and branch its execution pathway based on logical gates.</p>
-        <h2>The Fluid Gate Analogy</h2>
-        <p>Think of conditional statements like a fluid distribution manifold with safety valves. If pressure exceeds the threshold, the manifold closes flow-gate A and routes the fluid down safety pathway B. If not, it executes path C.</p>
-        <pre>pressure = 115
-
-if pressure > 120:
-    print("ALERT: Safety valve tripped!")
-elif pressure > 100:
-    print("WARNING: Pressure is rising, monitor closely.")
-else:
-    print("Report: System pressures stable.")</pre>
-        <h2>Logical Shorthand</h2>
-        <p>For simple routing decisions, you can use Python's ternary shorthand to keep code compact:
-        <pre>status = "Alert" if pressure > 120 else "Normal"</pre>
-        </p>
-      `
-    },
-    {
-      title: "7. Loops (While & For)",
-      subtitle: "Rotational Cycles & RPMs",
-      category: "Loops",
-      content: `
-        <p>Loops instruct the computer to execute a block of code repeatedly. Managing loops is like configuring the RPM cycle of an engine.</p>
-        <h2>While Loops (Continuous Operation)</h2>
-        <p>A <code>while</code> loop runs indefinitely as long as a conditional check remains <code>True</code>. If you forget to modify the checking condition, you trigger an infinite loop, causing your program engine to lock up!</p>
-        <pre>rpm = 0
-while rpm < 3000:
-    rpm += 500 # Accelerates cycle
-    print(f"RPM speed: {rpm}")</pre>
-        <h2>For Loops (Iterating Conveyor Belts)</h2>
-        <p>A <code>for</code> loop iterates over a collection (like a list, tuple, or dictionary) or a range of numbers. It is used to run a specific action on every item on a conveyor belt in sequence.</p>
-        <pre>critical_valves = ["valve_A", "valve_B", "valve_C"]
-for valve in critical_valves:
-    print(f"Auditing actuator status for: {valve}")</pre>
-        <h2>Interrupt Commands (Break & Continue)</h2>
-        <ul>
-          <li><code>break</code> - Instantly terminates the loop cycle and exits.</li>
-          <li><code>continue</code> - Skips the current iteration and jumps directly to the start of the next cycle.</li>
-        </ul>
-      `
-    },
-    {
-      title: "8. Functions & OOP Classes",
-      subtitle: "Modular Assemblies & Blueprint Blueprints",
-      category: "Functions & OOP",
-      content: `
-        <p>As applications scale, writing unstructured scripts becomes unmanageable. Functions and Object-Oriented Programming (OOP) allow you to modularize your code into reusable subsystems and structural blueprints.</p>
-        <h2>Functions (Subsystems / Valves)</h2>
-        <p>A function is a block of code which only runs when it is called. You can pass inputs (arguments <code>*args</code> or keyword arguments <code>**kwargs</code>) and return outputs.</p>
-        <pre>def calculate_torque(force, radius=0.2):
-    return force * radius # Torque = F * r</pre>
-        <h2>Classes & OOP (Engine Blueprints)</h2>
-        <p>A Class is an extensible program code template for creating objects, providing initial values for state (properties) and implementations of behavior (methods).</p>
-        <h2>The Blueprint Analogy</h2>
-        <p>Think of a **Class** like a mechanical blueprint of an engine. The blueprint itself is not a machine—it is just the documentation of dimensions and actions. 
-        When you construct a physical engine from that blueprint, you are creating an **Object** (instantiation). You can build multiple independent engines (objects) from the same blueprint (class).</p>
-        <pre># The Blueprint (Class)
-class Engine:
-    def __init__(self, cylinders, horse_power):
-        self.cylinders = cylinders # Property
-        self.horse_power = horse_power # Property
-        self.active = False # Property
-
-    def start_ignition(self): # Method (Action)
-        self.active = True
-        return "Vroom! System active."
-
-# Creating objects (instantiation)
-engine_A = Engine(4, 150)
-engine_B = Engine(8, 450)
-
-# Running methods on objects
-print(engine_A.start_ignition()) # Returns "Vroom! System active."
-print(engine_A.active) # Returns True
-print(engine_B.active) # Returns False (independent instances!)</pre>
-      `
-    }
-  ];
-
-  function openPythonReader() {
+  async function openPythonReader() {
     const reader = $('#learning-reader');
     const closeBtn = $('#reader-close-btn');
     const themeBtn = $('#reader-theme-btn');
@@ -1314,6 +1471,24 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     const headerChapter = $('#reader-header-chapter');
 
     if (!reader || !closeBtn || !tocList || !contentArea) return;
+
+    // The course database is a separate on-demand module: show the reader
+    // shell with an inline loading state while it arrives (cached from
+    // the second open onwards).
+    if (!window.PYTHON_CHAPTERS) {
+      reader.classList.add('is-active');
+      reader.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      contentArea.innerHTML = '<p style="padding: 2rem 0; color: var(--ink-low);">Loading course content…</p>';
+      try {
+        await LazySurface.load('python-course.js');
+      } catch (err) {
+        contentArea.innerHTML = '<p style="padding: 2rem 0; color: var(--ink-low);">Failed to load the course content — check your connection and try again.</p>';
+        closeBtn.onclick = () => closeReaderVisual();
+        return;
+      }
+    }
+    const PYTHON_CHAPTERS = window.PYTHON_CHAPTERS;
 
     let activeChapter = 0;
     
@@ -1335,45 +1510,10 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     reader.classList.add('is-active');
     reader.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden'; // Lock background scroll
+    OverlayHistory.opened('reader');
 
-    // Load WebAssembly Pyodide runtime helpers
-    let pyodideInstance = null;
-    let pyodidePromise = null;
-
-    async function getPyodide() {
-      if (pyodideInstance) return pyodideInstance;
-      if (pyodidePromise) return pyodidePromise;
-
-      pyodidePromise = new Promise((resolve, reject) => {
-        if (window.loadPyodide) {
-          loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/" })
-            .then(py => { pyodideInstance = py; resolve(py); })
-            .catch(err => { pyodidePromise = null; reject(err); });
-          return;
-        }
-        
-        const script = document.createElement('script');
-        script.src = "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/pyodide.js";
-        script.onload = async () => {
-          try {
-            const py = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.26.1/full/" });
-            pyodideInstance = py;
-            resolve(py);
-          } catch (err) {
-            pyodidePromise = null;
-            reject(err);
-          }
-        };
-        script.onerror = (err) => {
-          pyodidePromise = null;
-          reject(err);
-        };
-        document.head.appendChild(script);
-      });
-
-      return pyodidePromise;
-    }
-
+    // Python execution rides the shared Web Worker runtime (PyRuntime),
+    // so a heavy or runaway snippet can never freeze the reader UI.
     async function executePython(code, outputEl, buttonEl) {
       const originalText = buttonEl.textContent;
       buttonEl.disabled = true;
@@ -1381,45 +1521,19 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
       outputEl.textContent = "Running...";
       outputEl.classList.remove('err');
 
+      const out = [];
+      const errOut = [];
       try {
-        const py = await getPyodide();
-
-        // Set up output redirect
-        py.runPython(`
-          import sys
-          import io
-          sys.stdout = io.StringIO()
-          sys.stderr = io.StringIO()
-        `);
-
-        // Execute code
-        await py.runPythonAsync(code);
-
-        const stdout = py.runPython("sys.stdout.getvalue()");
-        const stderr = py.runPython("sys.stderr.getvalue()");
-
-        if (stderr) {
-          outputEl.textContent = stderr;
+        await PyRuntime.run(code, (t) => out.push(t), (t) => errOut.push(t));
+        if (errOut.length) {
+          outputEl.textContent = errOut.join('\n');
           outputEl.classList.add('err');
         } else {
-          outputEl.textContent = stdout || "Executed successfully (no output).";
+          outputEl.textContent = out.join('\n') || "Executed successfully (no output).";
         }
       } catch (err) {
-        let errMsg = "";
-        try {
-          if (pyodideInstance) {
-            const capturedStderr = pyodideInstance.runPython("sys.stderr.getvalue()");
-            if (capturedStderr && capturedStderr.trim()) {
-              errMsg = capturedStderr;
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-        if (!errMsg) {
-          errMsg = (err && (err.message || err.description)) || String(err);
-        }
-        outputEl.textContent = errMsg;
+        const msg = errOut.length ? errOut.join('\n') : ((err && err.message) || String(err));
+        outputEl.textContent = msg;
         outputEl.classList.add('err');
       } finally {
         buttonEl.disabled = false;
@@ -1538,9 +1652,8 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
 
     // Close / Go Back Click Listener
     closeBtn.onclick = () => {
-      reader.classList.remove('is-active');
-      reader.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = ''; // Restore background scroll
+      closeReaderVisual();
+      OverlayHistory.closed('reader');
     };
 
     // Keyboard navigation
@@ -1577,6 +1690,11 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     // Initial render
     renderActiveChapter();
   }
+
+  OverlayHistory.register('reader', {
+    open: openPythonReader,
+    close: closeReaderVisual,
+  });
 
   // -------------------------------------------------- mcp tools simulation logic
   function initMCPPlayground() {
@@ -1795,13 +1913,20 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
       modal.classList.add('is-open');
       modal.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden'; // Lock background scrolling
+      OverlayHistory.opened('resume');
     };
 
     const closeModal = () => {
       modal.classList.remove('is-open');
       modal.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = ''; // Restore background scrolling
+      OverlayHistory.closed('resume');
     };
+
+    OverlayHistory.register('resume', {
+      open: () => openModal({ preventDefault() {} }),
+      close: closeModal,
+    });
 
     if (resumeBtn) resumeBtn.addEventListener('click', openModal);
     if (navResumeBtn) navResumeBtn.addEventListener('click', openModal);
@@ -2001,9 +2126,55 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
     io.observe(marquee);
   }
 
+  // Lazy-surface stubs: the terminal (cli.js) and AI chat (ai-clone.js)
+  // scripts download the first time their surface is opened. Each script
+  // self-initializes and flags itself (__CLI_BOOTED / __AI_BOOTED); the
+  // stub then re-triggers the click so the surface opens seamlessly.
+  function initLazySurfaces() {
+    const cliBtn = $('#cli-nav-btn');
+    let cliBooting = false;
+    const bootTerminal = async () => {
+      if (window.__CLI_BOOTED || cliBooting) return;
+      cliBooting = true;
+      try {
+        await LazySurface.withVeil('cli.js');
+        if (cliBtn) cliBtn.click(); // cli.js's own listener opens it now
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        cliBooting = false;
+      }
+    };
+    if (cliBtn) cliBtn.addEventListener('click', () => { bootTerminal(); });
+    window.addEventListener('keydown', (e) => {
+      if ((e.key === '`' || e.key === '~') && !window.__CLI_BOOTED) {
+        e.preventDefault();
+        bootTerminal();
+      }
+    });
+
+    const chatBtn = $('#ai-chat-toggle');
+    let chatBooting = false;
+    if (chatBtn) chatBtn.addEventListener('click', async () => {
+      if (window.__AI_BOOTED || chatBooting) return;
+      chatBooting = true;
+      try {
+        await LazySurface.withVeil('ai-clone.js');
+        chatBtn.click(); // ai-clone.js's own listener opens it now
+      } catch (err) {
+        console.warn(err);
+      } finally {
+        chatBooting = false;
+      }
+    });
+  }
+
   // ================================================================= INIT
+  // Phase 1 — critical path, runs now: everything the visitor can see or
+  // click in the first moments. Renders are cheap string templating into
+  // the static skeleton; initNav wires scrolling; the status-warning
+  // interceptor must be live before any outbound link can be clicked.
   renderHero();
-  initMarqueeDupes();
   renderAbout();
   renderStats();
   renderSkills();
@@ -2016,15 +2187,30 @@ print(engine_B.active) # Returns False (independent instances!)</pre>
   renderBlogDropdown();
 
   initNav();
-  initBlogDropdown();
-  initForm();
-  initFilters();
-  initAudioEvents();
-  initProjectDrawer();
-  initGuidesDrawer();
-  initResumeModal();
   initStatusWarningModal();
-  initMarqueeAutoPause();
+  initLazySurfaces();
+
+  // Phase 2 — deferred to browser idle: wiring for surfaces that sit
+  // behind an interaction (pickers, drawers, modals, forms) plus marquee
+  // cloning (a layout read). Deferring keeps the main thread free right
+  // when low-end devices are busy with first paint and first scroll.
+  const initDeferred = () => {
+    initMarqueeDupes();
+    initThemeSwitcher();
+    initBlogDropdown();
+    initForm();
+    initFilters();
+    initAudioEvents();
+    initProjectDrawer();
+    initGuidesDrawer();
+    initResumeModal();
+    initMarqueeAutoPause();
+  };
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(initDeferred, { timeout: 1500 });
+  } else {
+    setTimeout(initDeferred, 300);
+  }
 
   // Enhancement layer: waits for the conditionally-injected GSAP bundle.
   // On perf-lite devices (no bundle) or if the CDN fails, the site stays on

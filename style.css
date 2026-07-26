@@ -7,26 +7,50 @@
 
 /* ---------------------------------------------------- living color system
    The whole accent palette rides on ONE drifting hue angle. Every color
-   below is hsl(hue + fixed-offset, FIXED saturation, FIXED lightness) —
-   only the hue identity drifts. Caveat: fixed HSL lightness is NOT fixed
-   luminance — at 45% lightness a yellow/green is far brighter than a
-   blue, so a full 360° rotation periodically dropped accent-colored text
-   and white-on-accent buttons below readable contrast on this light
-   theme. The drift is therefore clamped to the cool band --hue 248–338
-   (accent 210–300: cyan-blue → violet → magenta), where accent-on-white
-   and white-on-accent both stay ≥ 4.5:1 at every point, and the
-   animation ping-pongs (alternate) instead of wrapping. Text (--ink-*)
-   and surfaces (--bg-*, --glass-fill*) never reference --hue at all.
-   At --hue's initial value (263) every formula below reproduces the
-   original fixed hex palette exactly. */
+   below is hsl(hue + fixed-offset, FIXED saturation, lightness knob) —
+   the hue identity drifts. Caveat: fixed HSL lightness is NOT fixed
+   luminance — at 45% lightness a yellow/green/cyan is far brighter than
+   a blue, so a naive full 360° rotation drops accent text and
+   white-on-accent buttons below readable contrast on the light theme.
+   Cool Aurora therefore travels the FULL wheel (--hue 248 → 608, i.e.
+   248 wrapping around to 248) while co-animating --l-drift: a lightness
+   dip that deepens the accent to ~28% exactly while the accent hue
+   crosses the bright zone (orange → yellow → green → cyan, accent hue
+   ~15–205) and stays 0% in the naturally dark blues/violets/pinks/reds.
+   Both accent-on-white and white-on-accent stay ≥ 4.5:1 at every step.
+   Both ends of the journey are the same color (608 ≡ 248 mod 360), so
+   the alternate ping-pong turnaround is invisible. Dark mode ignores the
+   dip entirely: html.mode-dark pins --l-acc/--l-a2 to constants that are
+   contrast-safe on dark at every hue. Text (--ink-*) and surfaces
+   (--bg-*, --glass-fill*) never reference --hue at all. At --hue's
+   initial value (263, drift 0) every formula below reproduces the
+   original fixed hex palette exactly.
+   Theme presets (html.theme-*) re-anchor the same machinery: each swaps
+   in its own channel offsets and a narrow drift band via animation-name
+   (their keyframes never touch --l-drift, which then rests at 0%). */
 @property --hue {
   syntax: '<number>';
   inherits: true;
   initial-value: 263;
 }
+@property --l-drift {
+  syntax: '<percentage>';
+  inherits: true;
+  initial-value: 0%;
+}
+/* --hue advances linearly (each stop = 248 + 3.6 × percentage) so the
+   angular speed never varies; only the lightness dip ramps in and out.
+   Accent hue = --hue − 38: dip starts past the reds (~15), holds at 17%
+   through yellow/green/cyan (the AA-critical zone), releases at azure. */
 @keyframes hue-rotate {
-  from { --hue: 248; }
-  to   { --hue: 338; } /* clamped cool band — see contrast note above */
+  0%   { --hue: 248;   --l-drift: 0%; }  /* accent 210 azure          */
+  40%  { --hue: 392;   --l-drift: 0%; }  /* accent 354 rose-red       */
+  45%  { --hue: 410;   --l-drift: 3%; }  /* accent 12 red             */
+  50%  { --hue: 428;   --l-drift: 15%; } /* accent 30 orange          */
+  55%  { --hue: 446;   --l-drift: 17%; } /* accent 48 amber           */
+  94%  { --hue: 586.4; --l-drift: 17%; } /* accent 188 cyan           */
+  97%  { --hue: 597.2; --l-drift: 7%; }  /* accent 199 azure approach */
+  100% { --hue: 608;   --l-drift: 0%; }  /* accent 210 — same as 0%   */
 }
 
 /* ------------------------------------------------------------------ tokens */
@@ -35,27 +59,49 @@
   --bg-0: #f8fafc;
   --bg-1: #f1f5f9;
 
-  /* Ambient flowing HSL colors: soft pastels for light backdrop blobs */
-  --h-violet: var(--hue)            55% 85%;
-  --h-teal:   calc(var(--hue) - 88) 50% 84%;
-  --h-accent: calc(var(--hue) - 38) 75% 45%;
-  --h-aqua:   calc(var(--hue) - 88) 72% 38%;
-  --h-blue:   calc(var(--hue) - 37) 50% 84%;
-  --h-cyan:   calc(var(--hue) - 75) 55% 85%;
+  /* Ambient flowing HSL colors: soft pastels for light backdrop blobs.
+     The --l-* lightness knobs are UNSET in light mode (each usage falls
+     back to its light value); html.mode-dark defines them once and every
+     channel — including the per-preset redefinitions below — re-tunes
+     for dark surfaces automatically. */
+  --h-violet: var(--hue)            55% var(--l-soft, 85%);
+  --h-teal:   calc(var(--hue) - 88) 50% var(--l-soft, 84%);
+  /* Accent lightness: dark mode pins --l-acc; in light mode the aurora
+     --l-drift dip deepens the accent through the bright-hue zone so
+     contrast holds across the full wheel (0% outside aurora). */
+  --h-accent: calc(var(--hue) - 38) 75% var(--l-acc, calc(45% - var(--l-drift, 0%)));
+  --h-aqua:   calc(var(--hue) - 88) 72% var(--l-aqua, 38%);
+  --h-blue:   calc(var(--hue) - 37) 50% var(--l-soft, 84%);
+  --h-cyan:   calc(var(--hue) - 75) 55% var(--l-soft, 85%);
 
   --accent: hsl(var(--h-accent));
   /* Text-safe secondary accent: darker than the decorative --h-aqua so
      teal text (timeline meta, drawer headings) stays ~AA on white at
-     every hue in the band. Gradients and glows keep using --h-aqua. */
-  --accent-2: hsl(calc(var(--hue) - 88) 60% 31%);
+     every hue in the band. Rides half the aurora dip: its 31% base is
+     only borderline through yellow-olive, and it trails the accent by
+     50°. Gradients and glows keep using --h-aqua. */
+  --accent-2: hsl(calc(var(--hue) - 88) 60% var(--l-a2, calc(31% - var(--l-drift, 0%) / 2)));
 
-  /* Ambient drift: ~320s per 90° sweep in 96 steps — one tiny ~0.9-degree
-     hue shift every ~3.3s, rare enough that the style-recalc repaint each
-     step causes can never read as stutter on any device. The sweep
-     alternates direction (640s round trip). animation-delay is set
-     per-visit by a tiny inline script in <head> so each page load starts
-     at a different, random point in the cycle. */
-  animation: hue-rotate 320s steps(96, end) infinite alternate;
+  /* Vivid mid-tone gradient stops (category tiles, primary-button mid
+     stops). Decorative fills that sit under white text hardened with a
+     black stroke, so they may run brighter than the text-safe band —
+     but they MUST derive from --hue so theme presets re-skin them. */
+  --h-vivid:    var(--hue)             62% 50%;
+  --h-vivid-hi: var(--hue)             65% 58%;
+  --h-vivid-w3: calc(var(--hue) - 60)  60% 50%;
+  --h-vivid-be: calc(var(--hue) - 37)  65% 50%;
+
+  /* Ambient drift (Cool Aurora): 480s per full 360° journey in 384
+     steps — the same ~0.9-degree shift every ~1.25s as the previous
+     cool-band sweep, still far too infrequent for the style-recalc
+     repaint each step causes to read as stutter, but fast enough that a
+     visitor sees the color travel within a minute. Alternates direction
+     (960s round trip) — invisible, since both ends are the same color.
+     The other presets keep a slower 320s pace over much narrower bands
+     (their blocks set animation-duration explicitly). animation-delay is
+     set per-visit by a tiny inline script in <head> so each page load
+     starts at a different, random point in the cycle. */
+  animation: hue-rotate 480s steps(384, end) infinite alternate;
   animation-delay: var(--hue-delay, 0s);
 
   /* Deep slate ink contrast for light theme readability */
@@ -76,6 +122,106 @@
 
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Low-end tier: each hue step forces a document-wide custom-property
+   re-resolution — the one recurring cost the frozen background still
+   paid. Freeze the drift entirely; the boot script hands us a random
+   per-visit in-band hue via --hue-static. Declared BEFORE the preset
+   blocks on purpose: their own --hue anchors win the specificity tie,
+   so presets keep their correct colors on lite devices too. */
+html.perf-lite {
+  animation: none !important;
+  --hue: var(--hue-static, 263);
+}
+
+/* ----------------------------------------------------------- theme presets
+   Each preset keeps the living-hue machinery running: it re-derives the
+   six channels from --hue with its own offsets/saturation/lightness and
+   swaps animation-name to a narrow drift band of its own (a calm 320s
+   pace — slower than aurora's 120s wide sweep — with the same per-visit
+   random delay). html.theme-* outranks :root on specificity, so no
+   !important is needed; --accent still derives from --h-accent
+   automatically. The static --hue in each block is the anchor fallback
+   for when the animation is off.
+   At each band's midpoint the channels reproduce the preset's designed
+   palette (e.g. emerald accent = hsl(155 75% 40%)) exactly. */
+@keyframes hue-emerald { from { --hue: 160; } to { --hue: 175; } }
+html.theme-emerald {
+  --hue: 167;
+  animation-name: hue-emerald;
+  animation-duration: 320s;
+  --h-accent: calc(var(--hue) - 12) 75% var(--l-acc, 40%);
+  --h-aqua:   calc(var(--hue) - 2)  72% var(--l-aqua, 38%);
+  --h-violet: calc(var(--hue) - 7)  55% var(--l-soft, 85%);
+  --h-teal:   calc(var(--hue) + 3)  50% var(--l-soft, 84%);
+  --h-blue:   calc(var(--hue) + 8)  50% var(--l-soft, 84%);
+  --h-cyan:   calc(var(--hue) + 13) 55% var(--l-soft, 85%);
+  --accent-2: hsl(calc(var(--hue) - 5) 93% var(--l-a2, 24%));
+}
+
+@keyframes hue-solar { from { --hue: 44; } to { --hue: 56; } }
+html.theme-solar {
+  --hue: 50;
+  animation-name: hue-solar;
+  animation-duration: 320s;
+  --h-accent: calc(var(--hue) - 12) 90% var(--l-acc, 48%);
+  --h-aqua:   calc(var(--hue) - 2)  85% var(--l-aqua, 42%);
+  --h-violet: calc(var(--hue) - 8)  70% var(--l-soft, 85%);
+  --h-teal:   calc(var(--hue) - 15) 60% var(--l-soft, 84%);
+  --h-blue:   calc(var(--hue) - 20) 60% var(--l-soft, 84%);
+  --h-cyan:   calc(var(--hue) - 25) 70% var(--l-soft, 85%);
+  --accent-2: hsl(calc(var(--hue) - 24) 90% var(--l-a2, 37%));
+}
+
+@keyframes hue-ruby { from { --hue: 350; } to { --hue: 364; } }
+html.theme-ruby {
+  --hue: 357;
+  animation-name: hue-ruby;
+  animation-duration: 320s;
+  --h-accent: calc(var(--hue) - 12) 80% var(--l-acc, 50%);
+  --h-aqua:   calc(var(--hue) - 22) 75% var(--l-aqua, 45%);
+  --h-violet: calc(var(--hue) - 7)  65% var(--l-soft, 88%);
+  --h-teal:   calc(var(--hue) - 17) 55% var(--l-soft, 84%);
+  --h-blue:   calc(var(--hue) - 12) 55% var(--l-soft, 84%);
+  --h-cyan:   calc(var(--hue) - 2)  65% var(--l-soft, 85%);
+  --accent-2: hsl(calc(var(--hue) - 12) 83% var(--l-a2, 41%));
+}
+
+/* Monochrome: nothing to drift, and the vivid stops must desaturate. */
+html.theme-obsidian {
+  animation: none;
+  --hue: 215;
+  --h-accent: 215 25% var(--l-acc, 40%);
+  --h-aqua:   215 15% var(--l-aqua, 30%);
+  --h-violet: 220 15% var(--l-soft, 90%);
+  --h-teal:   220 15% var(--l-soft, 85%);
+  --h-blue:   220 15% var(--l-soft, 90%);
+  --h-cyan:   215 20% var(--l-soft, 88%);
+  --accent-2: hsl(215 30% var(--l-a2, 12%));
+  --h-vivid:    215 18% 45%;
+  --h-vivid-hi: 215 20% 55%;
+  --h-vivid-w3: 220 14% 38%;
+  --h-vivid-be: 210 16% 48%;
+}
+
+/* --------------------------------------------------------------- dark mode
+   Orthogonal to the presets: html.mode-dark swaps the surface/ink tokens
+   and defines the --l-* lightness knobs the channel formulas expose, so
+   ANY preset renders correctly in either mode (classes compose:
+   html.theme-emerald.mode-dark). Component-level patches live at the very
+   end of this sheet — they must out-cascade the hardened light rules. */
+html.mode-dark {
+  --bg-0: #0b1120;
+  --bg-1: #16203a;
+  --ink-hi: #f1f5f9;
+  --ink-mid: #cbd5e1;
+  --ink-low: #94a3b8;
+  --glass-fill: rgba(15, 23, 42, 0.62);
+  --l-soft: 42%;  /* pastels become deep ambient tints */
+  --l-acc: 60%;   /* accent lightens for dark surfaces */
+  --l-aqua: 52%;
+  --l-a2: 68%;    /* text-safe accent flips from dark-on-white to light-on-dark */
 }
 
 /* ------------------------------------------------------------------- base */
@@ -113,6 +259,78 @@ ul { list-style: none; }
   outline-offset: 3px;
   border-radius: 6px;
 }
+
+/* ------------------------------------------------------------ boot loader
+   Covers the viewport until the <head> boot script hides it on full load.
+   Rides the theme tokens, so it matches whichever mode / preset was
+   restored pre-paint. The page renders and lays out BENEATH it — cover,
+   never display:none, or GSAP/ScrollTrigger measurements break. */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  background: var(--bg-0);
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+.page-loader > * { grid-area: 1 / 1; }
+.page-loader.is-done {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.page-loader__ring {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    transparent 12%,
+    hsl(var(--h-accent)) 42%,
+    hsl(var(--h-aqua)) 58%,
+    transparent 88%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .page-loader__ring { animation: loader-spin 1.1s linear infinite; }
+}
+@keyframes loader-spin { to { transform: rotate(360deg); } }
+.page-loader__mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font: 800 1.05rem var(--font-main);
+  letter-spacing: 0.03em;
+  color: #ffffff;
+  -webkit-text-stroke: 1.2px #000000;
+  paint-order: stroke fill;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.88), hsl(var(--h-violet) / 0.82) 55%, hsl(var(--h-aqua) / 0.78));
+  border: 1.5px solid #000000;
+}
+
+/* On-demand surface loader: a translucent veil while a lazy module
+   (terminal, chat, course content) downloads. Shown by LazySurface in
+   app.js only when the fetch takes longer than ~150ms, so cached loads
+   never flash. Reuses the boot loader's ring. */
+.surface-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 11500;
+  display: grid;
+  place-items: center;
+  background: rgba(248, 250, 252, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.surface-loader.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
 
 /* ------------------------------------------------------------- background */
 .bg {
@@ -296,34 +514,38 @@ ul { list-style: none; }
   gap: 0.5rem;
   padding: 0.9rem 1.9rem;
   border-radius: var(--r-pill);
-  font: 600 1rem var(--font-main);
-  color: var(--ink-hi);
+  font: 700 1rem var(--font-main);
+  color: #0f172a !important;
   text-decoration: none;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: box-shadow 0.35s ease, color 0.35s ease, border-color 0.35s ease;
-  /* Solid milky fill + visible accent border: with live backdrop blur gone,
-     a 0.07 fill left these buttons see-through and edge-less. */
-  --glass-fill: rgba(255, 255, 255, 0.75);
-  border: 1.5px solid hsl(var(--h-accent) / 0.35);
+  transition: box-shadow 0.35s ease, color 0.35s ease, border-color 0.35s ease, transform 0.35s ease;
+  --glass-fill: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid #000000 !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
 }
 .btn:hover {
-  border-color: hsl(var(--h-accent) / 0.75);
-  box-shadow: 0 12px 40px -12px hsl(var(--h-accent) / 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  border-color: #000000 !important;
+  color: #000000 !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
 }
 
 .btn--primary {
-  --glass-fill: hsl(var(--h-accent));
-  color: #ffffff;
-  border-color: hsl(var(--h-accent) / 0.6);
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-violet) / 0.90) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  color: #ffffff !important;
+  -webkit-text-stroke: 1.2px #000000 !important;
+  paint-order: stroke fill !important;
+  border: 1.5px solid #000000 !important;
+  font-weight: 700 !important;
   box-shadow:
     0 12px 32px -8px hsl(var(--h-accent) / 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 .btn--primary:hover {
-  --glass-fill: hsl(var(--h-accent) / 0.85);
-  color: #ffffff;
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-violet)) 55%, hsl(var(--h-aqua))) !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
   box-shadow:
     0 16px 40px -8px hsl(var(--h-accent) / 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
@@ -336,7 +558,8 @@ ul { list-style: none; }
   position: fixed;
   top: 18px;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateZ(0);
+  will-change: transform;
   z-index: 50;
   display: flex;
   align-items: center;
@@ -394,6 +617,18 @@ ul { list-style: none; }
   paint-order: stroke fill !important;
 }
 
+.nav__theme svg path {
+  fill: #ffffff !important;
+  stroke: #000000 !important;
+  stroke-width: 2px !important;
+  paint-order: stroke fill !important;
+}
+
+.nav__theme svg circle {
+  fill: #000000 !important;
+  stroke: none !important;
+}
+
 .nav__links { display: flex; align-items: center; gap: 0.25rem; }
 
 /* Navigation Blog Dropdown */
@@ -415,10 +650,77 @@ ul { list-style: none; }
   visibility: hidden;
   z-index: 100;
   transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.3s ease;
-  box-shadow: 
+  box-shadow:
     0 16px 36px -12px rgba(15, 23, 42, 0.18),
     0 0 1px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  /* Short viewports (landscape phones): scroll inside the panel instead
+     of pushing options off-screen. Desktop is unaffected. */
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+}
+
+/* Standalone theme selector: a fixed glass satellite of the nav pill —
+   kept out of the nav itself, which is reserved for content navigation.
+   Same fill / gradient-border / shadow recipe as .nav so the two read
+   as siblings. */
+.theme-widget {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 49; /* just under the nav so its open dropdowns paint above */
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--r-pill);
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.92)) padding-box,
+    linear-gradient(135deg, hsl(var(--h-accent) / 0.35), hsl(var(--h-violet) / 0.30) 50%, hsl(var(--h-aqua) / 0.35)) border-box;
+  box-shadow:
+    0 20px 40px -15px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+/* Split-button caret: opens the preset dropdown; the palette logo itself
+   toggles dark / light mode. */
+.theme-caret {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-pill);
+  color: var(--ink-mid);
+  cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.theme-caret:hover { background: rgba(15, 23, 42, 0.06); color: var(--ink-hi); }
+.theme-caret svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s var(--ease-spring);
+}
+.theme-caret[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* Below ~900px the centered nav pill stretches toward the corners; slide
+   the capsule under the nav's right end instead of colliding with it.
+   (The caret made the capsule ~90px wide — at 841–880px the old 840px
+   breakpoint left it clipping the nav's right edge.) */
+@media (max-width: 900px) {
+  .theme-widget {
+    top: 84px;
+    right: calc(14px + env(safe-area-inset-right, 0px));
+  }
+}
+@media (max-width: 480px) {
+  .theme-widget { top: 72px; padding: 0.35rem 0.45rem; }
+  .theme-caret { height: 32px; }
+}
+/* Touch devices: the slim desktop caret is too small a target. */
+@media (hover: none) {
+  .theme-caret { width: 34px; }
 }
 
 .nav__dropdown.is-open {
@@ -448,6 +750,43 @@ ul { list-style: none; }
   transition: background-color 0.25s ease, transform 0.25s var(--ease-spring);
 }
 
+/* Theme picker rows: swatch + label, styled with the system's own active
+   vocabulary (soft accent tint + inset ring — no border, no layout shift). */
+.theme-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.theme-option.is-active {
+  background: hsl(var(--h-accent) / 0.12);
+  box-shadow: inset 0 0 0 1.5px hsl(var(--h-accent) / 0.35);
+}
+.theme-option__text {
+  display: block;
+  min-width: 0;
+}
+.theme-swatch {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    0 2px 6px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.theme-swatch--aurora   { background: linear-gradient(135deg, hsl(210 75% 45%), hsl(263 75% 45%) 30%, hsl(320 75% 45%) 55%, hsl(30 75% 32%) 78%, hsl(140 65% 30%)); }
+.theme-swatch--emerald  { background: linear-gradient(135deg, hsl(155 75% 40%), hsl(165 72% 38%) 55%, hsl(180 55% 60%)); }
+.theme-swatch--solar    { background: linear-gradient(135deg, hsl(38 90% 48%), hsl(26 90% 45%) 55%, hsl(10 80% 60%)); }
+.theme-swatch--ruby     { background: linear-gradient(135deg, hsl(345 80% 50%), hsl(335 75% 45%) 55%, hsl(355 70% 62%)); }
+.theme-swatch--obsidian { background: linear-gradient(135deg, #334155, #64748b 55%, #94a3b8); }
 .nav__dropdown-item:hover {
   background: rgba(15, 23, 42, 0.05);
   transform: translateY(-1px);
@@ -828,16 +1167,16 @@ ul { list-style: none; }
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 .project-card__mark--ai {
-  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 65% 58%));
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-vivid-hi)));
 }
 .project-card__mark--web3 {
-  background: linear-gradient(135deg, hsl(var(--h-aqua)), hsl(calc(var(--hue) - 60) 60% 50%));
+  background: linear-gradient(135deg, hsl(var(--h-aqua)), hsl(var(--h-vivid-w3)));
   box-shadow:
     0 8px 20px -8px hsl(var(--h-aqua) / 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 .project-card__mark--backend {
-  background: linear-gradient(135deg, hsl(calc(var(--hue) - 37) 65% 50%), hsl(var(--h-accent)));
+  background: linear-gradient(135deg, hsl(var(--h-vivid-be)), hsl(var(--h-accent)));
 }
 
 .badge {
@@ -879,23 +1218,24 @@ ul { list-style: none; }
 .project-card__links a:hover { text-decoration: underline; }
 
 .open-details-btn {
-  /* Strong violet mid-stop: --h-violet is an 85%-light PASTEL token, so
-     white text washed out over the old gradient's midsection. */
-  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-violet) / 0.90) 55%, hsl(var(--h-aqua) / 0.85)) !important;
   color: #ffffff !important;
-  -webkit-text-stroke: 1.2px #000000;
-  paint-order: stroke fill;
+  -webkit-text-stroke: 1.2px #000000 !important;
+  paint-order: stroke fill !important;
   border: 1.5px solid #000000 !important;
   font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
-  transition: all 0.3s ease !important;
+  font-size: 0.9rem !important;
+  padding: 0.6rem 1.3rem !important;
+  border-radius: var(--r-pill) !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15) !important;
+  transition: transform 0.3s var(--ease-spring), box-shadow 0.3s ease, background 0.3s ease !important;
 }
 .open-details-btn:hover {
-  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-violet)) 55%, hsl(var(--h-aqua))) !important;
   border-color: #000000 !important;
   color: #ffffff !important;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22) !important;
-  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25) !important;
+  transform: translateY(-2px) scale(1.02) !important;
 }
 
 /* ------------------------------------------------------------ experience */
@@ -1503,6 +1843,17 @@ ul { list-style: none; }
   font-family: var(--font-code);
   color: #0f172a;       /* Dark text color */
   transition: opacity 0.35s ease;
+  /* Highlight palette: cli.js emits inline color:var(--cli-*) spans, so
+     the terminal re-skins per MODE (dark overrides at the end of this
+     sheet). Deliberately independent of --hue / the color presets. */
+  --cli-green: #16a34a;
+  --cli-purple: #9333ea;
+  --cli-blue: #0284c7;
+  --cli-amber: #a16207;
+  --cli-orange: #c2410c;
+  --cli-red: #dc2626;
+  --cli-comment: #64748b;
+  --cli-link: #2563eb;
   /* No outer padding — title bar is flush to the top */
 }
 .cli-terminal.is-open {
@@ -1618,7 +1969,7 @@ ul { list-style: none; }
 
 /* Ubuntu prompt: user@host in bold green, path in blue */
 .cli-terminal__prompt {
-  color: #16a34a;       /* Clean green for light mode contrast */
+  color: var(--cli-green);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1666,10 +2017,10 @@ ul { list-style: none; }
 }
 .cli-terminal .cli-bar-chart {
   display: inline-block;
-  color: #16a34a;       /* Clean green for light mode contrast */
+  color: var(--cli-green);
 }
 .cli-terminal .cli-link {
-  color: #2563eb;       /* Cobalt blue for light mode links */
+  color: var(--cli-link);
   text-decoration: underline;
 }
 
@@ -1682,6 +2033,7 @@ ul { list-style: none; }
   pointer-events: none;
   z-index: 140;
   transition: opacity 0.4s ease;
+  will-change: opacity; /* pre-promoted alongside the drawer's layer */
 }
 .drawer-overlay.is-open {
   opacity: 1;
@@ -1711,11 +2063,19 @@ ul { list-style: none; }
     ),
     rgba(255, 255, 255, 0.94);
   box-shadow: -20px 0 60px -10px rgba(15, 23, 42, 0.25);
+  /* Pre-promote to its own compositor layer: without this, phones create
+     the layer at the moment the slide starts and drop the first frames. */
+  will-change: transform;
 }
 .project-drawer.is-open {
   transform: translateX(0) !important;
   pointer-events: all;
 }
+/* The .glass liquid-shine sweep (::after) is a full-panel skewed gradient
+   that animates on tap focus — repainting it during the slide is a
+   measurable jank source on phone GPUs. Drawers skip it; the ::before
+   specular edge stays. */
+.project-drawer::after { content: none; }
 .project-drawer__header {
   display: flex;
   justify-content: space-between;
@@ -1859,7 +2219,7 @@ ul { list-style: none; }
   background: #f1f5f9 !important;
 }
 .dapp-modal__box .mm-confirm {
-  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92)) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-vivid) / 0.92)) !important;
   color: #ffffff !important;
   -webkit-text-stroke: 1.2px #000000;
 }
@@ -2072,7 +2432,7 @@ ul { list-style: none; }
 }
 .mcp-play__btn,
 .open-dapp-btn {
-  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-vivid) / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
   color: #ffffff !important;
   -webkit-text-stroke: 1.2px #000000;
   paint-order: stroke fill;
@@ -2083,7 +2443,7 @@ ul { list-style: none; }
 }
 .mcp-play__btn:hover,
 .open-dapp-btn:hover {
-  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-vivid)) 55%, hsl(var(--h-aqua))) !important;
   border-color: #000000 !important;
   color: #ffffff !important;
 }
@@ -2126,7 +2486,7 @@ ul { list-style: none; }
   transition: transform 0.4s var(--ease-spring);
 }
 .contact-success__box .btn {
-  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-vivid) / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
   color: #ffffff !important;
   -webkit-text-stroke: 1.2px #000000;
   paint-order: stroke fill;
@@ -2135,7 +2495,7 @@ ul { list-style: none; }
   font-weight: 700 !important;
 }
 .contact-success__box .btn:hover {
-  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-vivid)) 55%, hsl(var(--h-aqua))) !important;
   border-color: #000000 !important;
   color: #ffffff !important;
 }
@@ -2331,6 +2691,13 @@ ul { list-style: none; }
   height: 56px;
   background: transparent;
   z-index: 10;
+  /* Hit-test ONLY while the modal is open: pointer-events:auto on a child
+     re-enables hit-testing inside the closed modal's pointer-events:none,
+     and this invisible patch sat exactly over the theme widget on
+     mid-width viewports, silently eating its taps. */
+  pointer-events: none;
+}
+.resume-modal.is-open .resume-modal__blocker {
   pointer-events: auto;
 }
 
@@ -2402,7 +2769,7 @@ ul { list-style: none; }
   padding: 0.7rem 1.2rem;
   font-weight: 700;
   font-size: 0.95rem;
-  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--hue) 62% 50% / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent) / 0.95), hsl(var(--h-vivid) / 0.92) 55%, hsl(var(--h-aqua) / 0.85)) !important;
   color: #ffffff !important;
   -webkit-text-stroke: 1.2px #000000;
   paint-order: stroke fill;
@@ -2413,7 +2780,7 @@ ul { list-style: none; }
   transition: all 0.3s ease !important;
 }
 .warning-modal__close:hover {
-  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--hue) 62% 50%) 55%, hsl(var(--h-aqua))) !important;
+  background: linear-gradient(135deg, hsl(var(--h-accent)), hsl(var(--h-vivid)) 55%, hsl(var(--h-aqua))) !important;
   border-color: #000000 !important;
   color: #ffffff !important;
   transform: translateY(-1px);
@@ -3104,4 +3471,225 @@ ul { list-style: none; }
 .cli-terminal__output::-webkit-scrollbar-thumb:hover,
 .nav__dropdown::-webkit-scrollbar-thumb:hover {
   background-color: rgba(100, 116, 139, 0.55);
+}
+
+/* =========================================================================
+   DARK MODE COMPONENT PATCHES
+   Deliberately the LAST section: the token layer (html.mode-dark near the
+   top) carries most of the page, but a handful of components hard-code
+   light-theme fills/borders — several with !important — so these patches
+   must match that weight and come later in the cascade. Scoped ecosystems
+   with their own theming (CLI terminal, learning reader, dapp modal, blog
+   pages) are intentionally untouched.
+   ========================================================================= */
+
+/* Floating glass chrome: nav pill + theme capsule swap the white milk for
+   dark slate; the hue-derived gradient border stays and gets a bit of
+   extra alpha so it still reads on dark. */
+html.mode-dark .nav,
+html.mode-dark .theme-widget {
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.88)) padding-box,
+    linear-gradient(135deg, hsl(var(--h-accent) / 0.5), hsl(var(--h-violet) / 0.4) 50%, hsl(var(--h-aqua) / 0.5)) border-box;
+  box-shadow:
+    0 20px 40px -15px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+html.mode-dark .nav__links a:hover { background: rgba(255, 255, 255, 0.06); }
+html.mode-dark .theme-caret:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* Dropdowns (blog + theme picker) */
+html.mode-dark .nav__dropdown {
+  --glass-fill: rgba(15, 23, 42, 0.96) !important;
+  box-shadow:
+    0 16px 36px -12px rgba(0, 0, 0, 0.65),
+    0 0 1px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+html.mode-dark .nav__dropdown-header { border-bottom-color: rgba(241, 245, 249, 0.08); }
+html.mode-dark .nav__dropdown-item:hover,
+html.mode-dark .nav__dropdown-trigger:hover { background: rgba(255, 255, 255, 0.06); }
+html.mode-dark .nav__dropdown-subitem:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* Glass panels: darker ambient shadow, dimmer specular edge. */
+html.mode-dark .glass {
+  box-shadow:
+    0 20px 48px -16px rgba(0, 0, 0, 0.5),
+    0 0 32px -20px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Buttons: the light theme hardens ink + borders with !important, so the
+   dark swap has to match. Gradient-filled buttons (.btn--primary and the
+   stroked-white-label family) already read correctly on dark. */
+html.mode-dark .btn {
+  color: #f1f5f9 !important;
+  border: 1.5px solid rgba(148, 163, 184, 0.45) !important;
+  --glass-fill: rgba(30, 41, 59, 0.92);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+html.mode-dark .btn:hover {
+  color: #ffffff !important;
+  border-color: rgba(203, 213, 225, 0.65) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+html.mode-dark .btn--primary,
+html.mode-dark .btn--primary:hover { color: #ffffff !important; border-color: #000000 !important; }
+
+/* Background: the mesh/vignette ride the tokens already; only the
+   blueprint dots need flipping from slate-on-white to silver-on-dark. */
+html.mode-dark .bg::after {
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.2) 1px, transparent 1.4px);
+}
+
+/* Hovers/tints hard-coded as slate-on-white */
+html.mode-dark .chip:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* Tech marquee pills (hard-coded white fill/border in light mode) */
+html.mode-dark .tech-block {
+  background: rgba(30, 41, 59, 0.82);
+  border-color: rgba(148, 163, 184, 0.25);
+  box-shadow:
+    0 8px 24px -6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+html.mode-dark .tech-block:hover {
+  border-color: hsl(var(--h-accent) / 0.45);
+  box-shadow:
+    0 16px 36px -8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* AI chat internals (bot bubble / input row hard-code slate-on-white) */
+html.mode-dark .chat-msg--bot {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html.mode-dark .ai-chat-form { border-top-color: rgba(255, 255, 255, 0.08); }
+html.mode-dark .ai-chat-form input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+html.mode-dark .ai-chat-header__btn:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* Nav active-link indicator: a black outline vanishes on the dark pill */
+html.mode-dark .nav__indicator { border-color: rgba(241, 245, 249, 0.35); }
+
+/* Slide-out drawers (projects + guides share .project-drawer): literal
+   white base under the hue tint in light mode. */
+html.mode-dark .project-drawer {
+  background:
+    linear-gradient(135deg,
+      hsl(var(--h-accent) / 0.16),
+      hsl(var(--h-violet) / 0.12) 50%,
+      hsl(var(--h-aqua) / 0.16)
+    ),
+    rgba(11, 17, 32, 0.97);
+  border-left-color: rgba(148, 163, 184, 0.35);
+  box-shadow: -20px 0 60px -10px rgba(0, 0, 0, 0.6);
+}
+html.mode-dark .project-drawer__header { border-bottom-color: rgba(255, 255, 255, 0.08); }
+html.mode-dark .project-drawer__close,
+html.mode-dark .project-drawer__close:hover { color: #f1f5f9; }
+
+/* Project drawer: architecture ASCII box */
+html.mode-dark .drawer-arch-box {
+  background: rgba(11, 17, 32, 0.85);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #e2e8f0;
+}
+
+/* MCP playground console (inside the project drawer) */
+html.mode-dark .mcp-play {
+  background: rgba(11, 17, 32, 0.85);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+html.mode-dark .mcp-play__row label { color: #cbd5e1; }
+html.mode-dark .mcp-play__select {
+  background: #1e293b;
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #f1f5f9;
+}
+html.mode-dark .mcp-play__select option { background: #1e293b; color: #f1f5f9; }
+html.mode-dark .mcp-play__code {
+  background: #0b1120;
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #e2e8f0;
+}
+html.mode-dark .mcp-play__code--output {
+  background: rgba(22, 101, 52, 0.2);
+  border-color: rgba(148, 163, 184, 0.4);
+  color: #4ade80;
+}
+
+/* CLI terminal: follows dark/light MODE only — never the color presets
+   (nothing in the terminal reads --hue). Light keeps the Ubuntu-on-slate
+   look; dark swaps the shell surfaces and brightens the highlight palette
+   to ANSI-style tints. Ubuntu-orange accents (tab bar, close hover,
+   caret, scrollbar) stay in both modes. */
+html.mode-dark .cli-terminal {
+  background: #0d1526;
+  color: #e2e8f0;
+  --cli-green: #4ade80;
+  --cli-purple: #c084fc;
+  --cli-blue: #38bdf8;
+  --cli-amber: #fbbf24;
+  --cli-orange: #fb923c;
+  --cli-red: #f87171;
+  --cli-comment: #8b9bb4;
+  --cli-link: #60a5fa;
+}
+html.mode-dark .cli-terminal__header {
+  background: rgba(2, 6, 23, 0.85);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+html.mode-dark .cli-terminal__title {
+  color: #e2e8f0;
+  background: #0d1526;
+  border-right-color: rgba(255, 255, 255, 0.08);
+  border-left-color: rgba(255, 255, 255, 0.08);
+}
+html.mode-dark .cli-terminal__close { color: #94a3b8; }
+html.mode-dark .cli-terminal__body { background: #0d1526; }
+html.mode-dark .cli-terminal__overlay { color: #e2e8f0; }
+html.mode-dark .cli-terminal__live-input::placeholder { color: rgba(226, 232, 240, 0.4); }
+
+/* Guides drawer list items */
+html.mode-dark .guides-item {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+html.mode-dark .guides-item--active:hover { background: rgba(255, 255, 255, 0.1); }
+html.mode-dark .guides-item--disabled { background: rgba(255, 255, 255, 0.03); }
+
+/* Contact form controls */
+html.mode-dark .form-control {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(148, 163, 184, 0.35);
+  color: var(--ink-hi);
+}
+html.mode-dark .form-control::placeholder { color: rgba(241, 245, 249, 0.35); }
+html.mode-dark .form-control:focus { background: rgba(15, 23, 42, 0.85); }
+
+/* Centered modals (white 0.92 boxes in light mode) */
+html.mode-dark .contact-success__box,
+html.mode-dark .warning-modal__box {
+  background:
+    linear-gradient(135deg,
+      hsl(var(--h-accent) / 0.2),
+      hsl(var(--h-violet) / 0.16) 50%,
+      hsl(var(--h-aqua) / 0.2)
+    ),
+    rgba(15, 23, 42, 0.96);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+html.mode-dark .warning-modal__text { color: var(--ink-mid); }
+
+/* AI chat widget */
+html.mode-dark .ai-chat-container {
+  --glass-fill: rgba(15, 23, 42, 0.97);
+  box-shadow:
+    0 24px 60px -18px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
