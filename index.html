@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sanju Antony — Backend &amp; AI Engineer</title>
   <meta name="description" content="Professional portfolio of Sanju Antony, Backend &amp; AI Engineer specializing in Python, FastAPI, GenAI, MCP, and Web3 solutions.">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="canonical" href="https://sanjubibin.github.io">
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
   <!-- Open Graph / Link Previews -->
   <meta property="og:type" content="website">
@@ -35,10 +38,45 @@
       (nav.hardwareConcurrency && nav.hardwareConcurrency <= 4) ||
       (nav.connection && nav.connection.saveData);
     window.PERF_LITE = !!lite;
-    if (lite) doc.className += ' perf-lite';
+    if (lite) {
+      doc.className += ' perf-lite';
+      // The lite tier freezes the hue drift (see style.css); hand it a
+      // random per-visit hue from the contrast-safe aurora band instead.
+      doc.style.setProperty('--hue-static', (248 + Math.random() * 90).toFixed(1));
+    }
+    // Restore the saved theme preset + color mode before first paint so
+    // returning visitors never see a flash; app.js only syncs the picker UI.
+    // Color mode DEFAULTS TO DARK — only an explicitly saved light choice
+    // (via the palette-logo toggle) renders the light theme.
+    var lightMode = false;
+    try {
+      var preset = localStorage.getItem('portfolio-theme-preset');
+      if (/^(emerald|solar|ruby|obsidian)$/.test(preset)) doc.className += ' theme-' + preset;
+      lightMode = localStorage.getItem('portfolio-color-mode') === 'light';
+    } catch (e) {}
+    if (!lightMode) doc.className += ' mode-dark';
+    // Boot loader: the page stays covered until every resource has
+    // arrived. Hidden on window 'load' + display fonts ready, with hard
+    // timeouts so a hung CDN resource can never strand the loader.
+    var hideLoader = function () {
+      var l = document.getElementById('page-loader');
+      if (!l || l.className.indexOf('is-done') !== -1) return;
+      l.className += ' is-done';
+      setTimeout(function () { if (l.parentNode) l.parentNode.removeChild(l); }, 700);
+    };
+    window.addEventListener('load', function () {
+      if (document.fonts && document.fonts.ready) {
+        var fontsTimeout = setTimeout(hideLoader, 2000);
+        document.fonts.ready.then(function () { clearTimeout(fontsTimeout); hideLoader(); });
+      } else {
+        hideLoader();
+      }
+    });
+    setTimeout(hideLoader, 8000); /* absolute fallback */
     // Randomize the ambient hue starting point per visit (spans the full
-    // 640s alternate ping-pong cycle; referenced by style.css).
-    doc.style.setProperty('--hue-delay', (-(Math.random() * 640)).toFixed(1) + 's');
+    // 960s alternate ping-pong cycle of the default aurora drift;
+    // referenced by style.css).
+    doc.style.setProperty('--hue-delay', (-(Math.random() * 960)).toFixed(1) + 's');
     // Capable devices only: fetch the animation engine in parallel with CSS.
     if (!lite) {
       var urls = [
@@ -68,6 +106,15 @@
 </head>
 <body>
 
+  <!-- Boot loader: covers the page until every resource has loaded
+       (hidden by the loader logic in the <head> boot script). Content
+       still lays out beneath it, so GSAP/ScrollTrigger measurements stay
+       correct. -->
+  <div id="page-loader" class="page-loader" role="status" aria-label="Loading">
+    <div class="page-loader__ring" aria-hidden="true"></div>
+    <div class="page-loader__mark" aria-hidden="true">SA</div>
+  </div>
+
   <!-- Ambient background: aurora gradient mesh + color blobs + film grain
        + dot matrix. Static (rasterized once) on lite tiers; capable devices
        additionally get a very slow compositor-only blob orbit. -->
@@ -89,7 +136,7 @@
     </nav>
     <button id="cli-nav-btn" class="nav__brand nav__cli" aria-label="Open Terminal Console" data-gel data-magnet>&gt;_</button>
     <div class="nav__dropdown-wrapper" id="blog-nav-wrapper">
-      <button id="blog-nav-btn" class="nav__brand nav__blog" aria-label="Open Blog Publications" data-gel data-magnet>
+      <button id="blog-nav-btn" class="nav__brand nav__blog" aria-label="Open Blog Publications" aria-expanded="false" data-gel data-magnet>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; display:block;">
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
@@ -103,6 +150,66 @@
     </div>
     <div class="nav__indicator" id="nav-indicator" aria-hidden="true"></div>
   </header>
+
+  <!-- Standalone theme selector: a glass satellite of the nav pill.
+       Kept out of the nav on purpose — the nav is reserved for core
+       content navigation (sections, blog, terminal, resume).
+       Split button: the palette logo toggles dark / light mode, the
+       caret opens the color-preset dropdown. -->
+  <div class="theme-widget" id="theme-nav-wrapper">
+    <button id="theme-nav-btn" class="nav__brand nav__theme" aria-label="Toggle dark or light mode" aria-pressed="false" data-gel data-magnet>
+      <svg viewBox="0 0 24 24" style="width:16px; height:16px; display:block;">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c.92 0 1.67-.75 1.67-1.67 0-.42-.16-.8-.42-1.09-.25-.28-.41-.65-.41-1.07 0-.92.75-1.67 1.67-1.67H16c3.31 0 6-2.69 6-6 0-4.96-4.48-9-10-9z" fill="#ffffff" stroke="#000000" stroke-width="2" stroke-linejoin="round" paint-order="stroke fill"></path>
+        <circle cx="8" cy="11" r="1.3" fill="#000000"></circle>
+        <circle cx="9.5" cy="7" r="1.3" fill="#000000"></circle>
+        <circle cx="14.5" cy="7" r="1.3" fill="#000000"></circle>
+        <circle cx="17" cy="11" r="1.3" fill="#000000"></circle>
+      </svg>
+    </button>
+    <button id="theme-caret-btn" class="theme-caret" aria-label="Select Color Theme" aria-haspopup="true" aria-expanded="false" data-gel>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="glass nav__dropdown theme-dropdown" id="theme-dropdown" aria-hidden="true">
+      <div class="nav__dropdown-header">Select Color Theme</div>
+      <div class="nav__dropdown-items">
+        <button type="button" class="nav__dropdown-item theme-option is-active" data-theme="aurora">
+          <span class="theme-swatch theme-swatch--aurora" aria-hidden="true"></span>
+          <span class="theme-option__text">
+            <span class="nav__dropdown-title">Cool Aurora</span>
+            <span class="nav__dropdown-desc">Full-spectrum living rainbow (Default)</span>
+          </span>
+        </button>
+        <button type="button" class="nav__dropdown-item theme-option" data-theme="emerald">
+          <span class="theme-swatch theme-swatch--emerald" aria-hidden="true"></span>
+          <span class="theme-option__text">
+            <span class="nav__dropdown-title">Emerald Matrix</span>
+            <span class="nav__dropdown-desc">Cyber Mint → Jade → Turquoise</span>
+          </span>
+        </button>
+        <button type="button" class="nav__dropdown-item theme-option" data-theme="solar">
+          <span class="theme-swatch theme-swatch--solar" aria-hidden="true"></span>
+          <span class="theme-option__text">
+            <span class="nav__dropdown-title">Solar Sunset</span>
+            <span class="nav__dropdown-desc">Amber Gold → Warm Coral</span>
+          </span>
+        </button>
+        <button type="button" class="nav__dropdown-item theme-option" data-theme="ruby">
+          <span class="theme-swatch theme-swatch--ruby" aria-hidden="true"></span>
+          <span class="theme-option__text">
+            <span class="nav__dropdown-title">Ruby Crimson</span>
+            <span class="nav__dropdown-desc">Rose Pink → Crimson Red</span>
+          </span>
+        </button>
+        <button type="button" class="nav__dropdown-item theme-option" data-theme="obsidian">
+          <span class="theme-swatch theme-swatch--obsidian" aria-hidden="true"></span>
+          <span class="theme-option__text">
+            <span class="nav__dropdown-title">Obsidian Slate</span>
+            <span class="nav__dropdown-desc">Monochrome Slate & Silver</span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <main id="main">
 
@@ -258,10 +365,11 @@
   <script src="config.js" defer></script>
   <!-- Animation engine (GSAP) is injected conditionally by the inline
        perf-tier script in <head>; low-end devices never download it. -->
-  <!-- Site logic -->
+  <!-- Site logic. The terminal (cli.js), AI chat (ai-clone.js) and the
+       Python course content (python-course.js) are NOT loaded here —
+       app.js lazy-loads each one the first time its surface is opened,
+       so visitors only download the pages they actually visit. -->
   <script src="app.js" defer></script>
-  <script src="ai-clone.js" defer></script>
-  <script src="cli.js" defer></script>
 
 
   <!-- Sanju's AI Agent Chat Widget -->
@@ -456,8 +564,8 @@
     <div class="cli-terminal__body">
       <div class="cli-terminal__output" id="cli-terminal-output">
         <span style="color:var(--ink-hi); font-weight: 700;">Welcome to Sanju Antony's Developer Terminal Sandbox v2.0.0.</span>
-        <span style="color:#c2410c; font-weight: 700;">[WARN] System under active development. Remote SSH compiler links are simulated.</span>
-        <span style="color:var(--ink-mid);">Type '<span style="color:#16a34a; font-weight: 700;">help</span>' to see list of available commands.</span>
+        <span style="color:var(--cli-orange); font-weight: 700;">[WARN] System under active development. Remote SSH compiler links are simulated.</span>
+        <span style="color:var(--ink-mid);">Type '<span style="color:var(--cli-green); font-weight: 700;">help</span>' to see list of available commands.</span>
       </div>
     </div>
   </div>
