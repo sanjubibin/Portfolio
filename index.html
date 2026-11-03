@@ -60,7 +60,14 @@
     // timeouts so a hung CDN resource can never strand the loader.
     var hideLoader = function () {
       var l = document.getElementById('page-loader');
-      if (!l || l.className.indexOf('is-done') !== -1) return;
+      if (!l || l.className.indexOf('is-done') !== -1 || l.__handedOff) return;
+      // Capable devices: app.js registers a handoff so the swarm intro
+      // (swarm.js) takes over the cover instead of a plain fade.
+      if (window.__loaderHandoff) {
+        l.__handedOff = true;
+        window.__loaderHandoff(l);
+        return;
+      }
       l.className += ' is-done';
       setTimeout(function () { if (l.parentNode) l.parentNode.removeChild(l); }, 700);
     };
@@ -77,12 +84,14 @@
     // 960s alternate ping-pong cycle of the default aurora drift;
     // referenced by style.css).
     doc.style.setProperty('--hue-delay', (-(Math.random() * 960)).toFixed(1) + 's');
-    // Capable devices only: fetch the animation engine in parallel with CSS.
+    // Capable devices only: fetch the animation engine (and the swarm
+    // build layer that rides on it) in parallel with CSS.
     if (!lite) {
       var urls = [
         'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js',
         'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js',
-        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js'
+        'https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollToPlugin.min.js',
+        'swarm.js'
       ];
       var left = urls.length;
       window.__gsapReady = new Promise(function (res) {
@@ -218,23 +227,30 @@
 
       <!-- ============================ HERO ============================ -->
       <section id="hero" class="hero">
-        <div class="hero__content">
-          <div class="hero__badge glass" id="hero-badge">Sanju Antony</div>
-          <h1 class="hero__title" id="hero-title">Backend &amp; AI Engineer</h1>
-          <p class="hero__sub" id="hero-sub">Building intelligent systems across backend, AI, and Web3</p>
-          <div class="hero__cta">
-            <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Projects</a>
-            <a class="btn glass" href="#contact" data-gel data-magnet>Get In Touch</a>
+        <div class="hero__wordmark" aria-hidden="true"><span id="hero-wordmark">SANJU</span></div>
+        <div class="hero__grid">
+          <div class="hero__content">
+            <div class="hero__badge glass" id="hero-badge">Sanju Antony</div>
+            <h1 class="hero__title" id="hero-title">Backend &amp; AI Engineer</h1>
+            <p class="hero__sub" id="hero-sub">Building intelligent systems across backend, AI, and Web3</p>
+            <div class="hero__cta">
+              <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Projects</a>
+              <a class="btn glass" href="#contact" data-gel data-magnet>Get In Touch</a>
+            </div>
+            <p class="hero__proof" id="hero-proof"></p>
           </div>
-          <p class="hero__proof" id="hero-proof"></p>
+          <!-- Filled from CONFIG.profile.avatarUrl by app.js (removed if empty) -->
+          <figure class="hero__portrait glass" id="hero-portrait" hidden></figure>
         </div>
       </section>
 
       <!-- ============================ FEATURES (ABOUT) ============================ -->
       <section id="about" class="section">
         <div class="section__inner">
-          <h2 class="section__title reveal">Expertise &amp; Bio</h2>
-          <p class="section__sub reveal">Developing scalable server architectures, custom LLM chatbot utilities, and audited smart contracts.</p>
+          <div class="section__head">
+            <h2 class="section__title reveal">Expertise &amp; Bio</h2>
+            <p class="section__sub reveal">Developing scalable server architectures, custom LLM chatbot utilities, and audited smart contracts.</p>
+          </div>
 
           <div class="about__grid">
             <article class="glass card about__card reveal" data-tilt>
@@ -247,8 +263,10 @@
             <div class="about__stats" id="about-stats"></div>
           </div>
 
-          <h3 class="skills__heading reveal">Technical Capabilities</h3>
-          <p class="section__sub reveal">Languages, runtime tools, and deployment environments I work with daily.</p>
+          <div class="section__head">
+            <h3 class="skills__heading reveal">Technical Capabilities</h3>
+            <p class="section__sub reveal">Languages, runtime tools, and deployment environments I work with daily.</p>
+          </div>
           <div class="skills" id="skills-groups"></div>
         </div>
       </section>
@@ -296,8 +314,10 @@
       <!-- ============================ SOLUTIONS (PROJECTS) ============================ -->
       <section id="projects" class="section">
         <div class="section__inner">
-          <h2 class="section__title reveal">Production Solutions</h2>
-          <p class="section__sub reveal">Featured backend systems, generative AI client tools, and smart contract integrations.</p>
+          <div class="section__head">
+            <h2 class="section__title reveal">Production Solutions</h2>
+            <p class="section__sub reveal">Featured backend systems, generative AI client tools, and smart contract integrations.</p>
+          </div>
           <div class="chips reveal" id="project-filters" role="group" aria-label="Filter projects by category"></div>
           <div class="projects__grid" id="projects-grid"></div>
         </div>
@@ -306,8 +326,10 @@
       <!-- ============================ ROADMAP (EXPERIENCE) ============================ -->
       <section id="experience" class="section">
         <div class="section__inner">
-          <h2 class="section__title reveal">Professional Timeline</h2>
-          <p class="section__sub reveal">Role milestones, microservice migration, and AI R&amp;D achievements.</p>
+          <div class="section__head">
+            <h2 class="section__title reveal">Professional Timeline</h2>
+            <p class="section__sub reveal">Role milestones, microservice migration, and AI R&amp;D achievements.</p>
+          </div>
           <div class="timeline" id="xp-timeline">
             <span class="timeline__line" id="xp-line" aria-hidden="true"></span>
           </div>
@@ -317,8 +339,10 @@
       <!-- ============================ ENTERPRISE (CONTACT) ============================ -->
       <section id="contact" class="section">
         <div class="section__inner">
-          <h2 class="section__title reveal">Get In Touch</h2>
-          <p class="section__sub reveal">Interested in collaborating? Drop a line to discuss backend, AI agent pipelines, or smart contract audits.</p>
+          <div class="section__head">
+            <h2 class="section__title reveal">Get In Touch</h2>
+            <p class="section__sub reveal">Interested in collaborating? Drop a line to discuss backend, AI agent pipelines, or smart contract audits.</p>
+          </div>
 
           <div class="contact__grid">
             <form class="glass card contact__form reveal" id="contact-form" novalidate>
