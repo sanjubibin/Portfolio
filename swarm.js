@@ -8,9 +8,10 @@
 //  2. init(): every [data-swarm] block gets an agent layer (wireframe,
 //     typing / paste previews, image placement box, check stamp, five role
 //     agents + seven helpers). Its children fly in from alternating sides
-//     while the agents work. Intro blocks (nav, hero) play on dispatch;
-//     every other block is scrubbed by scroll, so it assembles on the way
-//     down and comes apart again on the way back up.
+//     while the agents work. Intro blocks (hero) play on dispatch; every
+//     other block follows the scroll FORWARD-ONLY: it assembles in step
+//     with scrolling down, never runs backwards, and a block caught mid-
+//     build when the visitor scrolls back up finishes at normal speed.
 //
 // Loaded only on capable devices (the <head> boot script injects it next
 // to GSAP), and app.js only calls it when motion is allowed — so the lite
@@ -35,7 +36,8 @@
 
   let gsap = null;
   let ScrollTrigger = null;
-  const builds = new Map(); // element -> timeline
+  const builds = new Map();   // element -> timeline
+  const triggers = new Map(); // element -> its live forward-only ScrollTrigger
 
   const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
   const clean = (s) => s.replace(/\s+/g, ' ').trim();
@@ -201,17 +203,11 @@
       }
     };
 
+    // Always paused: intro builds are played on dispatch, scroll builds are
+    // driven by followScroll() below.
     const tl = gsap.timeline({
-      paused: intro,
+      paused: true,
       defaults: { ease: 'power2.out' },
-      scrollTrigger: intro ? undefined : {
-        trigger: el,
-        start: 'top 98%',
-        // clamp(): blocks near the page bottom still finish at max scroll.
-        end: 'clamp(top 52%)',
-        scrub: 1.25,
-        invalidateOnRefresh: true
-      },
       onUpdate() {
         const p = this.progress();
         if (p >= 1) { settle(); return; }
@@ -254,7 +250,66 @@
 
     animateRoles(tl, el, t);
     tl.to([wire, label], { opacity: 0, duration: 0.2 }, '>-=0.1');
+    if (!intro) followScroll(el, tl);
     return tl;
+  }
+
+  // Forward-only scroll. On the way down the build follows the scroll
+  // (smoothed, like a scrub) but never runs backwards. Scrolling back up
+  // while a block is mid-build lets it finish at normal speed, so nothing
+  // is left frozen half-assembled. Fully built blocks stop listening.
+  function followScroll(el, tl) {
+    let reached = 0;
+    let st = null;
+    const release = () => {
+      if (st) st.kill();
+      st = null;
+      triggers.delete(el);
+    };
+    const finish = () => {
+      reached = 1;
+      gsap.to(tl, {
+        progress: 1,
+        duration: Math.max(0.3, (1 - tl.progress()) * tl.duration()),
+        ease: 'none',
+        overwrite: true
+      });
+      release();
+    };
+    st = ScrollTrigger.create({
+      trigger: el,
+      start: 'top 98%',
+      // clamp(): blocks near the page bottom still finish at max scroll.
+      end: 'clamp(top 52%)',
+      onUpdate(self) {
+        if (self.direction < 0) {
+          if (reached > 0 && reached < 1) finish();
+          return;
+        }
+        if (self.progress <= reached) return;
+        reached = self.progress;
+        gsap.to(tl, { progress: reached, duration: 0.9, ease: 'power2.out', overwrite: true });
+        if (reached >= 1) release();
+      },
+      // Load, resize and filter refreshes: re-measure a block that hasn't
+      // started, build blocks already scrolled past instantly, and let a
+      // block that lands mid-range finish rather than sit half-built.
+      onRefresh(self) {
+        if (reached === 0) tl.invalidate().progress(1, true).progress(0, true);
+        const p = self.progress;
+        if (p <= reached || p === 0) return;
+        if (p >= 1) {
+          reached = 1;
+          tl.progress(1);
+          release();
+        } else {
+          tl.progress(p);
+          finish();
+        }
+      }
+    });
+    if (reached >= 1) release();
+    else triggers.set(el, st);
   }
 
   // ------------------------------------------------------------- public
@@ -297,7 +352,9 @@
   function refresh(targets) {
     builds.forEach((tl, el) => {
       if (el.isConnected) return;
-      tl.scrollTrigger && tl.scrollTrigger.kill();
+      const st = triggers.get(el);
+      if (st) st.kill();
+      triggers.delete(el);
       tl.kill();
       builds.delete(el);
     });
