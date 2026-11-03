@@ -1,7 +1,7 @@
 // =========================================================================
 // MULTIPLAYER CANVAS PORTFOLIO — APPLICATION LOGIC
 // Renders all content from window.CONFIG (config.js) into canvas frames
-// and wires the interaction layer: frame labels / selection / layers,
+// and wires the interaction layer: frame labels / selection, presence,
 // the toolbar + top bar, the visitor's "You" cursor, GSAP scroll FX, the
 // swarm build (swarm.js), project filters, and the mailto contact form.
 //
@@ -601,6 +601,11 @@
           }
 
           scrollToTarget(target);
+          // Pointer clicks (detail > 0) drop focus: otherwise the clicked
+          // tool keeps it, and the next key press (e.g. Page Down) paints a
+          // focus ring on a tool that is no longer the active frame.
+          // Keyboard activation (detail 0) keeps focus where it was.
+          if (e.detail > 0) a.blur();
         }
       }
     });
@@ -906,13 +911,11 @@
               ease: 'power2.out', clearProps: 'all'
             });
             if (SWARM) Swarm.refresh(swarmTargets());
-            renderLayers();
             ScrollTrigger.refresh();
           }
         });
       } else {
         renderProjects(cat, false);
-        renderLayers();
       }
     });
   }
@@ -950,26 +953,6 @@
     });
   }
 
-  // Figma-style layer list (wide screens): every frame plus its key
-  // children. Rebuilt after project filters re-render the cards.
-  const LAYER_CHILDREN = { projects: '.project-card h3', experience: '.xp-item h3' };
-  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
-
-  function renderLayers() {
-    const list = $('#layers-list');
-    if (!list) return;
-    const active = $('.frame.is-selected');
-    list.innerHTML = $$('.frame').map((frame) => {
-      const kids = LAYER_CHILDREN[frame.id] ? $$(LAYER_CHILDREN[frame.id], frame) : [];
-      return `<a class="layers__item${frame === active ? ' is-active' : ''}" href="#${frame.id}">${esc(frame.dataset.frame || frame.id)}</a>` +
-        kids.map((h) => {
-          const card = h.closest('.card');
-          if (!card.id) card.id = `${frame.id}-${slug(h.textContent)}`;
-          return `<a class="layers__item layers__item--child" href="#${card.id}">${esc(h.textContent)}</a>`;
-        }).join('');
-    }).join('');
-  }
-
   // The build crew's presence stack in the top bar — the same five
   // labelled roles (and colors) that work in swarm.js.
   const CREW = [
@@ -987,7 +970,7 @@
   }
 
   // The frame crossing the reading line is "selected": its outline and
-  // handles light up, and the toolbar, layers and top bar follow it.
+  // handles light up, and the toolbar and top bar follow it.
   // IntersectionObserver-based, so it also runs on the lite tier.
   function initActiveFrame() {
     const frames = $$('.frame');
@@ -1001,8 +984,6 @@
         if (on) a.setAttribute('aria-current', 'location');
         else a.removeAttribute('aria-current');
       });
-      $$('.layers__item:not(.layers__item--child)').forEach((a) =>
-        a.classList.toggle('is-active', a.getAttribute('href') === '#' + frame.id));
       if (page) page.textContent = frame.dataset.frame || frame.id;
     };
     const io = new IntersectionObserver((entries) => {
@@ -2267,7 +2248,6 @@
   renderBlogDropdown();
   renderPresence();
   initFrames();
-  renderLayers();
   initActiveFrame();
 
   initNav();
