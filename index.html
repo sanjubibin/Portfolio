@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sanju Antony — Backend &amp; AI Engineer</title>
   <meta name="description" content="Professional portfolio of Sanju Antony, Backend &amp; AI Engineer specializing in Python, FastAPI, GenAI, MCP, and Web3 solutions.">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#131315">
   <link rel="canonical" href="https://sanjubibin.github.io/Portfolio/">
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 
@@ -28,7 +28,7 @@
 
   <!-- Boot script. The site renders efficiently everywhere by design;
        "perf-lite" (low-end / data-saver / reduced-motion devices)
-       additionally skips the GSAP download and offscreen rendering. -->
+       additionally skips the GSAP + swarm download. -->
   <script>
   (function () {
     var doc = document.documentElement, nav = navigator;
@@ -46,8 +46,8 @@
     }
     // Restore the saved theme preset + color mode before first paint so
     // returning visitors never see a flash; app.js only syncs the picker UI.
-    // Color mode DEFAULTS TO DARK — only an explicitly saved light choice
-    // (via the palette-logo toggle) renders the light theme.
+    // Color mode DEFAULTS TO DARK (the dark canvas) — only an explicitly
+    // saved light choice renders the light canvas.
     var lightMode = false;
     try {
       var preset = localStorage.getItem('portfolio-theme-preset');
@@ -107,276 +107,203 @@
   })();
   </script>
 
-  <!-- Font imports (Outfit + Fira Code for CLI console) -->
+  <!-- Inter for the canvas UI, Fira Code for labels and the terminal -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Boot loader: covers the page until every resource has loaded
-       (hidden by the loader logic in the <head> boot script). Content
-       still lays out beneath it, so GSAP/ScrollTrigger measurements stay
+  <!-- Boot loader: covers the page until every resource has loaded; on
+       capable devices it hands over to the swarm opening (swarm.js).
+       Content lays out BENEATH it so ScrollTrigger measurements stay
        correct. -->
   <div id="page-loader" class="page-loader" role="status" aria-label="Loading">
     <div class="page-loader__ring" aria-hidden="true"></div>
     <div class="page-loader__mark" aria-hidden="true">SA</div>
   </div>
 
-  <!-- Ambient background: aurora gradient mesh + color blobs + film grain
-       + dot matrix. Static (rasterized once) on lite tiers; capable devices
-       additionally get a very slow compositor-only blob orbit. -->
-  <div class="bg" aria-hidden="true">
-    <div class="bg__base"></div>
-    <div class="bg__blob bg__blob--1"></div>
-    <div class="bg__blob bg__blob--2"></div>
-    <div class="bg__blob bg__blob--3"></div>
-  </div>
-
-  <!-- Floating glass navbar -->
-  <header class="nav glass" id="site-nav">
-    <a class="nav__brand" href="#hero" data-gel data-magnet aria-label="Back to top">SA</a>
-    <nav class="nav__links" aria-label="Primary">
-      <a href="#about" data-gel data-magnet>About</a>
-      <a href="#projects" data-gel data-magnet>Projects</a>
-      <a href="#experience" data-gel data-magnet>Experience</a>
-      <a href="#contact" data-gel data-magnet>Contact</a>
-    </nav>
-    <button id="cli-nav-btn" class="nav__brand nav__cli" aria-label="Open Terminal Console" data-gel data-magnet>&gt;_</button>
-    <div class="nav__dropdown-wrapper" id="blog-nav-wrapper">
-      <button id="blog-nav-btn" class="nav__brand nav__blog" aria-label="Open Blog Publications" aria-expanded="false" data-gel data-magnet>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:16px; height:16px; display:block;">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-        </svg>
-      </button>
-      <div class="glass nav__dropdown" id="blog-dropdown" aria-hidden="true"></div>
+  <!-- ===================== Canvas chrome: the file's top bar ===================== -->
+  <header class="topbar" id="site-nav">
+    <a class="topbar__brand" href="#hero" aria-label="Back to top">SA</a>
+    <div class="topbar__file">
+      <span class="topbar__project">sanju-portfolio</span>
+      <span class="topbar__sep" aria-hidden="true">/</span>
+      <span class="topbar__page" id="topbar-page" aria-live="polite">Hero</span>
     </div>
-    <a class="btn btn--sm glass nav__resume" href="Files/Resume.pdf" target="_blank" rel="noopener" data-gel data-magnet>Resume</a>
-    <div class="nav__progress-container" aria-hidden="true">
-      <span class="nav__progress"></span>
-    </div>
-    <div class="nav__indicator" id="nav-indicator" aria-hidden="true"></div>
+    <div class="topbar__presence" id="topbar-presence" aria-label="AI build agents online"></div>
+    <button id="theme-nav-btn" class="topbar__icon" type="button" aria-label="Toggle dark or light mode" aria-pressed="false">
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <a class="btn btn--primary btn--sm nav__resume" href="Files/Resume.pdf" target="_blank" rel="noopener">Resume</a>
+    <div class="topbar__progress" aria-hidden="true"><span class="nav__progress"></span></div>
   </header>
 
-  <!-- Standalone theme selector: a glass satellite of the nav pill.
-       Kept out of the nav on purpose — the nav is reserved for core
-       content navigation (sections, blog, terminal, resume).
-       Split button: the palette logo toggles dark / light mode, the
-       caret opens the color-preset dropdown. -->
-  <div class="theme-widget" id="theme-nav-wrapper">
-    <button id="theme-nav-btn" class="nav__brand nav__theme" aria-label="Toggle dark or light mode" aria-pressed="false" data-gel data-magnet>
-      <svg viewBox="0 0 24 24" style="width:16px; height:16px; display:block;">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c.92 0 1.67-.75 1.67-1.67 0-.42-.16-.8-.42-1.09-.25-.28-.41-.65-.41-1.07 0-.92.75-1.67 1.67-1.67H16c3.31 0 6-2.69 6-6 0-4.96-4.48-9-10-9z" fill="#ffffff" stroke="#000000" stroke-width="2" stroke-linejoin="round" paint-order="stroke fill"></path>
-        <circle cx="8" cy="11" r="1.3" fill="#000000"></circle>
-        <circle cx="9.5" cy="7" r="1.3" fill="#000000"></circle>
-        <circle cx="14.5" cy="7" r="1.3" fill="#000000"></circle>
-        <circle cx="17" cy="11" r="1.3" fill="#000000"></circle>
-      </svg>
-    </button>
-    <button id="theme-caret-btn" class="theme-caret" aria-label="Select Color Theme" aria-haspopup="true" aria-expanded="false" data-gel>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <div class="glass nav__dropdown theme-dropdown" id="theme-dropdown" aria-hidden="true">
-      <div class="nav__dropdown-header">Select Color Theme</div>
-      <div class="nav__dropdown-items">
-        <button type="button" class="nav__dropdown-item theme-option is-active" data-theme="aurora">
-          <span class="theme-swatch theme-swatch--aurora" aria-hidden="true"></span>
-          <span class="theme-option__text">
-            <span class="nav__dropdown-title">Cool Aurora</span>
-            <span class="nav__dropdown-desc">Full-spectrum living rainbow (Default)</span>
-          </span>
-        </button>
-        <button type="button" class="nav__dropdown-item theme-option" data-theme="emerald">
-          <span class="theme-swatch theme-swatch--emerald" aria-hidden="true"></span>
-          <span class="theme-option__text">
-            <span class="nav__dropdown-title">Emerald Matrix</span>
-            <span class="nav__dropdown-desc">Cyber Mint → Jade → Turquoise</span>
-          </span>
-        </button>
-        <button type="button" class="nav__dropdown-item theme-option" data-theme="solar">
-          <span class="theme-swatch theme-swatch--solar" aria-hidden="true"></span>
-          <span class="theme-option__text">
-            <span class="nav__dropdown-title">Solar Sunset</span>
-            <span class="nav__dropdown-desc">Amber Gold → Warm Coral</span>
-          </span>
-        </button>
-        <button type="button" class="nav__dropdown-item theme-option" data-theme="ruby">
-          <span class="theme-swatch theme-swatch--ruby" aria-hidden="true"></span>
-          <span class="theme-option__text">
-            <span class="nav__dropdown-title">Ruby Crimson</span>
-            <span class="nav__dropdown-desc">Rose Pink → Crimson Red</span>
-          </span>
-        </button>
-        <button type="button" class="nav__dropdown-item theme-option" data-theme="obsidian">
-          <span class="theme-swatch theme-swatch--obsidian" aria-hidden="true"></span>
-          <span class="theme-option__text">
-            <span class="nav__dropdown-title">Obsidian Slate</span>
-            <span class="nav__dropdown-desc">Monochrome Slate & Silver</span>
-          </span>
-        </button>
+  <!-- Layers panel (wide screens): built from the frames by app.js -->
+  <aside class="layers" id="layers" aria-label="Page layers">
+    <div class="layers__head">Layers</div>
+    <nav class="layers__list" id="layers-list"></nav>
+  </aside>
+
+  <main id="main" class="canvas">
+
+    <!-- ============================ HERO ============================ -->
+    <section id="hero" class="frame frame--hero" data-frame="Hero">
+      <div class="frame__body hero">
+        <div class="hero__content">
+          <p class="hero__kicker"><span class="hero__live" aria-hidden="true"></span><span id="hero-badge">Sanju Antony</span><span id="hero-location"></span></p>
+          <h1 class="hero__title" id="hero-title">Backend &amp; AI Engineer</h1>
+          <p class="hero__sub" id="hero-sub">Building intelligent systems across backend, AI, and Web3</p>
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="#projects">View projects</a>
+            <a class="btn" href="#contact">Get in touch</a>
+          </div>
+          <p class="hero__proof" id="hero-proof"></p>
+        </div>
+        <!-- Filled from CONFIG.profile.avatarUrl by app.js (removed if empty) -->
+        <figure class="hero__portrait" id="hero-portrait" hidden></figure>
+        <!-- FigJam-style sticky note: the current role, from CONFIG.experience[0] -->
+        <aside class="sticky" id="hero-note" hidden></aside>
+      </div>
+    </section>
+
+    <!-- ============================ ABOUT ============================ -->
+    <section id="about" class="frame" data-frame="About">
+      <div class="frame__body">
+        <div class="section__head">
+          <h2 class="section__title reveal">Expertise &amp; Bio</h2>
+          <p class="section__sub reveal">Developing scalable server architectures, custom LLM chatbot utilities, and audited smart contracts.</p>
+        </div>
+        <div class="about__grid">
+          <article class="card about__card reveal">
+            <div class="about__avatar" id="about-avatar" aria-hidden="true"></div>
+            <div class="about__text">
+              <h3 id="about-name">Sanju Antony</h3>
+              <p class="about__bio" id="about-bio"></p>
+            </div>
+          </article>
+          <div class="about__stats" id="about-stats"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ SKILLS ============================ -->
+    <section id="skills" class="frame" data-frame="Skills">
+      <div class="frame__body">
+        <div class="section__head">
+          <h2 class="section__title reveal">Technical Capabilities</h2>
+          <p class="section__sub reveal">Languages, runtime tools, and deployment environments I work with daily.</p>
+        </div>
+        <div class="skills" id="skills-groups"></div>
+      </div>
+    </section>
+
+    <!-- ===================== Component strip (on the open canvas) ===================== -->
+    <div class="tech-marquee" aria-hidden="true">
+      <span class="canvas-tag"># Components / Stack</span>
+      <div class="tech-marquee__track tech-marquee__track--left">
+        <div class="tech-marquee__group">
+          <span class="tech-block">LLM Runtimes</span>
+          <span class="tech-block">FastAPI Engines</span>
+          <span class="tech-block">Solidity Ledger</span>
+          <span class="tech-block">AI Agents</span>
+          <span class="tech-block">Vector Databases</span>
+          <span class="tech-block">Container Nodes</span>
+        </div>
+        <div class="tech-marquee__group">
+          <span class="tech-block">LLM Runtimes</span>
+          <span class="tech-block">FastAPI Engines</span>
+          <span class="tech-block">Solidity Ledger</span>
+          <span class="tech-block">AI Agents</span>
+          <span class="tech-block">Vector Databases</span>
+          <span class="tech-block">Container Nodes</span>
+        </div>
+      </div>
+      <div class="tech-marquee__track tech-marquee__track--right">
+        <div class="tech-marquee__group">
+          <span class="tech-block">Serverless Grid</span>
+          <span class="tech-block">Custom MCP Server</span>
+          <span class="tech-block">Multisig Governed</span>
+          <span class="tech-block">Consent Gateways</span>
+          <span class="tech-block">Real-Time Metrics</span>
+          <span class="tech-block">Git-Trigger CD</span>
+        </div>
+        <div class="tech-marquee__group">
+          <span class="tech-block">Serverless Grid</span>
+          <span class="tech-block">Custom MCP Server</span>
+          <span class="tech-block">Multisig Governed</span>
+          <span class="tech-block">Consent Gateways</span>
+          <span class="tech-block">Real-Time Metrics</span>
+          <span class="tech-block">Git-Trigger CD</span>
+        </div>
       </div>
     </div>
-  </div>
 
-  <main id="main">
-
-    <!-- Left column containing standard scrolling text contents -->
-    <div class="scrolly__content-col">
-
-      <!-- ============================ HERO ============================ -->
-      <section id="hero" class="hero">
-        <div class="hero__wordmark" aria-hidden="true"><span id="hero-wordmark">SANJU</span></div>
-        <div class="hero__grid">
-          <div class="hero__content">
-            <div class="hero__badge glass" id="hero-badge">Sanju Antony</div>
-            <h1 class="hero__title" id="hero-title">Backend &amp; AI Engineer</h1>
-            <p class="hero__sub" id="hero-sub">Building intelligent systems across backend, AI, and Web3</p>
-            <div class="hero__cta">
-              <a class="btn btn--primary glass" href="#projects" data-gel data-magnet>View Projects</a>
-              <a class="btn glass" href="#contact" data-gel data-magnet>Get In Touch</a>
-            </div>
-            <p class="hero__proof" id="hero-proof"></p>
-          </div>
-          <!-- Filled from CONFIG.profile.avatarUrl by app.js (removed if empty) -->
-          <figure class="hero__portrait glass" id="hero-portrait" hidden></figure>
+    <!-- ============================ PROJECTS ============================ -->
+    <section id="projects" class="frame" data-frame="Projects">
+      <div class="frame__body">
+        <div class="section__head">
+          <h2 class="section__title reveal">Production Solutions</h2>
+          <p class="section__sub reveal">Featured backend systems, generative AI client tools, and smart contract integrations.</p>
         </div>
-      </section>
+        <div class="chips reveal" id="project-filters" role="group" aria-label="Filter projects by category"></div>
+        <div class="projects__grid" id="projects-grid"></div>
+      </div>
+    </section>
 
-      <!-- ============================ FEATURES (ABOUT) ============================ -->
-      <section id="about" class="section">
-        <div class="section__inner">
-          <div class="section__head">
-            <h2 class="section__title reveal">Expertise &amp; Bio</h2>
-            <p class="section__sub reveal">Developing scalable server architectures, custom LLM chatbot utilities, and audited smart contracts.</p>
-          </div>
-
-          <div class="about__grid">
-            <article class="glass card about__card reveal" data-tilt>
-              <div class="about__avatar" id="about-avatar" aria-hidden="true"></div>
-              <div class="about__text">
-                <h3 id="about-name">Sanju Antony</h3>
-                <p class="about__bio" id="about-bio"></p>
-              </div>
-            </article>
-            <div class="about__stats" id="about-stats"></div>
-          </div>
-
-          <div class="section__head">
-            <h3 class="skills__heading reveal">Technical Capabilities</h3>
-            <p class="section__sub reveal">Languages, runtime tools, and deployment environments I work with daily.</p>
-          </div>
-          <div class="skills" id="skills-groups"></div>
+    <!-- ============================ EXPERIENCE ============================ -->
+    <section id="experience" class="frame" data-frame="Experience">
+      <div class="frame__body">
+        <div class="section__head">
+          <h2 class="section__title reveal">Professional Timeline</h2>
+          <p class="section__sub reveal">Role milestones, microservice migration, and AI R&amp;D achievements.</p>
         </div>
-      </section>
-
-      <!-- ============================ INFINITE TECH MARQUEE ============================ -->
-      <div class="tech-marquee" aria-hidden="true">
-        <div class="tech-marquee__track tech-marquee__track--left">
-          <div class="tech-marquee__group">
-            <span class="tech-block">🤖 LLM Runtimes</span>
-            <span class="tech-block">⚡ FastAPI Engines</span>
-            <span class="tech-block">⛓️ Solidity Ledger</span>
-            <span class="tech-block">🧠 AI Agents</span>
-            <span class="tech-block">📂 Vector Databases</span>
-            <span class="tech-block">🐳 Container Nodes</span>
-          </div>
-          <div class="tech-marquee__group">
-            <span class="tech-block">🤖 LLM Runtimes</span>
-            <span class="tech-block">⚡ FastAPI Engines</span>
-            <span class="tech-block">⛓️ Solidity Ledger</span>
-            <span class="tech-block">🧠 AI Agents</span>
-            <span class="tech-block">📂 Vector Databases</span>
-            <span class="tech-block">🐳 Container Nodes</span>
-          </div>
-        </div>
-        <div class="tech-marquee__track tech-marquee__track--right">
-          <div class="tech-marquee__group">
-            <span class="tech-block">☁️ Serverless Grid</span>
-            <span class="tech-block">🔌 Custom MCP Server</span>
-            <span class="tech-block">🔒 Multisig Governed</span>
-            <span class="tech-block">🛡️ Consent Gateways</span>
-            <span class="tech-block">📊 Real-Time Metrics</span>
-            <span class="tech-block">🚀 Git-Trigger CD</span>
-          </div>
-          <div class="tech-marquee__group">
-            <span class="tech-block">☁️ Serverless Grid</span>
-            <span class="tech-block">🔌 Custom MCP Server</span>
-            <span class="tech-block">🔒 Multisig Governed</span>
-            <span class="tech-block">🛡️ Consent Gateways</span>
-            <span class="tech-block">📊 Real-Time Metrics</span>
-            <span class="tech-block">🚀 Git-Trigger CD</span>
-          </div>
+        <div class="timeline" id="xp-timeline">
+          <span class="timeline__line" id="xp-line" aria-hidden="true"></span>
         </div>
       </div>
+    </section>
 
-      <!-- ============================ SOLUTIONS (PROJECTS) ============================ -->
-      <section id="projects" class="section">
-        <div class="section__inner">
-          <div class="section__head">
-            <h2 class="section__title reveal">Production Solutions</h2>
-            <p class="section__sub reveal">Featured backend systems, generative AI client tools, and smart contract integrations.</p>
-          </div>
-          <div class="chips reveal" id="project-filters" role="group" aria-label="Filter projects by category"></div>
-          <div class="projects__grid" id="projects-grid"></div>
+    <!-- ============================ CONTACT ============================ -->
+    <section id="contact" class="frame" data-frame="Contact">
+      <div class="frame__body">
+        <div class="section__head">
+          <h2 class="section__title reveal">Get In Touch</h2>
+          <p class="section__sub reveal">Interested in collaborating? Drop a line to discuss backend, AI agent pipelines, or smart contract audits.</p>
         </div>
-      </section>
+        <div class="contact__grid">
+          <form class="card contact__form reveal" id="contact-form" novalidate>
+            <div class="form-row">
+              <label for="cf-name">Your Name</label>
+              <input class="form-control" id="cf-name" name="name" type="text" placeholder="John Doe" autocomplete="name" required>
+            </div>
+            <div class="form-row">
+              <label for="cf-email">Your Email</label>
+              <input class="form-control" id="cf-email" name="email" type="email" placeholder="john@company.com" autocomplete="email" required>
+            </div>
+            <div class="form-row">
+              <label for="cf-subject">Subject</label>
+              <input class="form-control" id="cf-subject" name="subject" type="text" placeholder="AI Agent Integration" required>
+            </div>
+            <div class="form-row">
+              <label for="cf-message">Message</label>
+              <textarea class="form-control" id="cf-message" name="message" rows="5" placeholder="Let's build something scalable..." required></textarea>
+            </div>
+            <p id="form-status" role="status" aria-live="polite"></p>
+            <button class="btn btn--primary" id="cf-submit" type="submit">Send Message</button>
+          </form>
 
-      <!-- ============================ ROADMAP (EXPERIENCE) ============================ -->
-      <section id="experience" class="section">
-        <div class="section__inner">
-          <div class="section__head">
-            <h2 class="section__title reveal">Professional Timeline</h2>
-            <p class="section__sub reveal">Role milestones, microservice migration, and AI R&amp;D achievements.</p>
-          </div>
-          <div class="timeline" id="xp-timeline">
-            <span class="timeline__line" id="xp-line" aria-hidden="true"></span>
-          </div>
+          <aside class="card contact__aside reveal">
+            <h3>Contact Details</h3>
+            <ul class="contact__meta" id="contact-meta"></ul>
+            <div class="socials" id="social-links"></div>
+            <a class="btn contact__resume" id="resume-btn" href="Files/Resume.pdf" target="_blank" rel="noopener">View Resume / CV</a>
+          </aside>
         </div>
-      </section>
-
-      <!-- ============================ ENTERPRISE (CONTACT) ============================ -->
-      <section id="contact" class="section">
-        <div class="section__inner">
-          <div class="section__head">
-            <h2 class="section__title reveal">Get In Touch</h2>
-            <p class="section__sub reveal">Interested in collaborating? Drop a line to discuss backend, AI agent pipelines, or smart contract audits.</p>
-          </div>
-
-          <div class="contact__grid">
-            <form class="glass card contact__form reveal" id="contact-form" novalidate>
-              <div class="form-row">
-                <label for="cf-name">Your Name</label>
-                <input class="form-control" id="cf-name" name="name" type="text" placeholder="John Doe" autocomplete="name" required>
-              </div>
-              <div class="form-row">
-                <label for="cf-email">Your Email</label>
-                <input class="form-control" id="cf-email" name="email" type="email" placeholder="john@company.com" autocomplete="email" required>
-              </div>
-              <div class="form-row">
-                <label for="cf-subject">Subject</label>
-                <input class="form-control" id="cf-subject" name="subject" type="text" placeholder="AI Agent Integration" required>
-              </div>
-              <div class="form-row">
-                <label for="cf-message">Message</label>
-                <textarea class="form-control" id="cf-message" name="message" rows="5" placeholder="Let's build something scalable..." required></textarea>
-              </div>
-              <p id="form-status" role="status" aria-live="polite"></p>
-              <button class="btn btn--primary glass" id="cf-submit" type="submit" data-gel>Send Message</button>
-            </form>
-
-            <aside class="glass card contact__aside reveal" data-tilt>
-              <h3>Contact Details</h3>
-              <ul class="contact__meta" id="contact-meta"></ul>
-              <div class="socials" id="social-links"></div>
-              <a class="btn glass contact__resume" id="resume-btn" href="Files/Resume.pdf" target="_blank" rel="noopener" data-gel>View Resume / CV</a>
-            </aside>
-          </div>
-        </div>
-      </section>
-
-    </div> <!-- End scrolly__content-col -->
+      </div>
+    </section>
 
   </main>
 
@@ -385,19 +312,92 @@
     <p id="footer-line"></p>
   </footer>
 
+  <!-- ===================== Canvas chrome: the bottom toolbar ===================== -->
+  <nav class="toolbar" id="toolbar" aria-label="Primary">
+    <div class="toolbar__group nav__links">
+      <a class="tool" href="#hero" aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12 3 12l9-9 9 9h-2M5 12v8h5v-5h4v5h5v-8"/></svg><span>Home</span></a>
+      <a class="tool" href="#about" aria-label="About"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg><span>About</span></a>
+      <a class="tool" href="#skills" aria-label="Skills"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5z"/><path d="m3 13 9 5 9-5"/></svg><span>Skills</span></a>
+      <a class="tool" href="#projects" aria-label="Projects"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Projects</span></a>
+      <a class="tool" href="#experience" aria-label="Experience"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6"/></svg><span>Experience</span></a>
+      <a class="tool" href="#contact" aria-label="Contact"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-6.4A8 8 0 1 1 21 12z"/></svg><span>Contact</span></a>
+    </div>
+    <span class="toolbar__divider" aria-hidden="true"></span>
+    <div class="toolbar__group">
+      <button id="cli-nav-btn" class="tool tool--icon" type="button" aria-label="Open Terminal Console" data-tip="Terminal">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 17 6-5-6-5M12 19h8"/></svg>
+      </button>
+      <div class="nav__dropdown-wrapper" id="blog-nav-wrapper">
+        <button id="blog-nav-btn" class="tool tool--icon" type="button" aria-label="Open Blog Publications" aria-expanded="false" data-tip="Blog and guides">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
+        <div class="nav__dropdown popover" id="blog-dropdown" aria-hidden="true"></div>
+      </div>
+      <div class="nav__dropdown-wrapper" id="theme-nav-wrapper">
+        <button id="theme-caret-btn" class="tool tool--icon" type="button" aria-label="Select Color Theme" aria-haspopup="true" aria-expanded="false" data-tip="Theme">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7H17a4 4 0 0 0 4-4c0-4.6-4-8.4-9-8.4z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15.5" cy="7.5" r="1"/></svg>
+        </button>
+        <div class="nav__dropdown popover theme-dropdown" id="theme-dropdown" aria-hidden="true">
+          <div class="nav__dropdown-header">Appearance</div>
+          <div class="mode-switch" role="group" aria-label="Color mode">
+            <button type="button" class="mode-switch__btn" data-mode="light">Light</button>
+            <button type="button" class="mode-switch__btn" data-mode="dark">Dark</button>
+          </div>
+          <div class="nav__dropdown-header">Accent preset</div>
+          <div class="nav__dropdown-items">
+            <button type="button" class="nav__dropdown-item theme-option is-active" data-theme="aurora">
+              <span class="theme-swatch theme-swatch--aurora" aria-hidden="true"></span>
+              <span class="theme-option__text">
+                <span class="nav__dropdown-title">Cool Aurora</span>
+                <span class="nav__dropdown-desc">Full-spectrum living rainbow (Default)</span>
+              </span>
+            </button>
+            <button type="button" class="nav__dropdown-item theme-option" data-theme="emerald">
+              <span class="theme-swatch theme-swatch--emerald" aria-hidden="true"></span>
+              <span class="theme-option__text">
+                <span class="nav__dropdown-title">Emerald Matrix</span>
+                <span class="nav__dropdown-desc">Cyber Mint → Jade → Turquoise</span>
+              </span>
+            </button>
+            <button type="button" class="nav__dropdown-item theme-option" data-theme="solar">
+              <span class="theme-swatch theme-swatch--solar" aria-hidden="true"></span>
+              <span class="theme-option__text">
+                <span class="nav__dropdown-title">Solar Sunset</span>
+                <span class="nav__dropdown-desc">Amber Gold → Warm Coral</span>
+              </span>
+            </button>
+            <button type="button" class="nav__dropdown-item theme-option" data-theme="ruby">
+              <span class="theme-swatch theme-swatch--ruby" aria-hidden="true"></span>
+              <span class="theme-option__text">
+                <span class="nav__dropdown-title">Ruby Crimson</span>
+                <span class="nav__dropdown-desc">Rose Pink → Crimson Red</span>
+              </span>
+            </button>
+            <button type="button" class="nav__dropdown-item theme-option" data-theme="obsidian">
+              <span class="theme-swatch theme-swatch--obsidian" aria-hidden="true"></span>
+              <span class="theme-option__text">
+                <span class="nav__dropdown-title">Obsidian Slate</span>
+                <span class="nav__dropdown-desc">Monochrome Slate &amp; Silver</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
   <!-- Content data -->
   <script src="config.js" defer></script>
-  <!-- Animation engine (GSAP) is injected conditionally by the inline
-       perf-tier script in <head>; low-end devices never download it. -->
+  <!-- Animation engine (GSAP + swarm.js) is injected conditionally by the
+       inline perf-tier script in <head>; low-end devices never download it. -->
   <!-- Site logic. The terminal (cli.js), AI chat (ai-clone.js) and the
        Python course content (python-course.js) are NOT loaded here —
        app.js lazy-loads each one the first time its surface is opened,
        so visitors only download the pages they actually visit. -->
   <script src="app.js" defer></script>
 
-
   <!-- Sanju's AI Agent Chat Widget -->
-  <button id="ai-chat-toggle" class="glass ai-chat-toggle" aria-label="Open Sanju's AI Agent Chat" data-gel>
+  <button id="ai-chat-toggle" class="glass ai-chat-toggle" aria-label="Open Sanju's AI Agent Chat">
     <svg viewBox="0 0 24 24" class="ai-chat-toggle__icon" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
       <path d="M12.5 6.5l.3.7.7.3-.7.3-.3.7-.3-.7-.7-.3.7-.3z" fill="currentColor" stroke="none"></path>
@@ -431,7 +431,7 @@
 
     <form id="ai-chat-form" class="ai-chat-form">
       <input type="text" id="ai-chat-input" placeholder="Ask about Sanju's experience, skills, projects..." autocomplete="off" required>
-      <button type="submit" class="btn btn--primary glass btn--sm" data-gel>Send</button>
+      <button type="submit" class="btn btn--primary glass btn--sm">Send</button>
     </form>
   </div>
 
@@ -518,7 +518,7 @@
   <div id="learning-reader" class="learning-reader" aria-hidden="true">
     <!-- Header -->
     <header class="reader-header glass">
-      <button class="btn btn--sm glass reader-back-btn" id="reader-close-btn" data-gel type="button">
+      <button class="btn btn--sm glass reader-back-btn" id="reader-close-btn" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
@@ -600,7 +600,7 @@
       <div class="contact-success__icon">✓</div>
       <h4 style="font-weight: 700; color: var(--ink-hi); font-size: 1.25rem; margin-bottom: 0.5rem;">Message Sent Successfully!</h4>
       <p style="font-size: 0.95rem; color: var(--ink-low); line-height: 1.5;">Thank you for getting in touch. I will review your message and connect with you shortly.</p>
-      <button type="button" class="btn btn--sm glass" id="contact-success-close" data-gel style="margin-top: 1.2rem; width: 100%;">Close</button>
+      <button type="button" class="btn btn--sm glass" id="contact-success-close" style="margin-top: 1.2rem; width: 100%;">Close</button>
     </div>
   </div>
 
@@ -626,7 +626,7 @@
       <p id="status-warning-text" class="warning-modal__text">
         This profile is currently offline for updates. Please feel free to reach out via email or send a message using the contact form!
       </p>
-      <button type="button" class="btn btn--sm glass warning-modal__close" id="status-warning-close" data-gel>
+      <button type="button" class="btn btn--sm glass warning-modal__close" id="status-warning-close">
         Understood
       </button>
     </div>

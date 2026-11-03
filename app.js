@@ -1,8 +1,9 @@
 // =========================================================================
-// LIQUID GLASS PORTFOLIO — APPLICATION LOGIC
-// Renders all content from window.CONFIG (config.js) and wires the
-// interaction layer: cursor light, 3D tilt, gel buttons, GSAP scroll
-// reveals, project filters, and the mailto contact form.
+// MULTIPLAYER CANVAS PORTFOLIO — APPLICATION LOGIC
+// Renders all content from window.CONFIG (config.js) into canvas frames
+// and wires the interaction layer: frame labels / selection / layers,
+// the toolbar + top bar, the visitor's "You" cursor, GSAP scroll FX, the
+// swarm build (swarm.js), project filters, and the mailto contact form.
 //
 // Progressive enhancement rules:
 //  - Content renders and is fully readable with NO GSAP (blocked CDN).
@@ -51,6 +52,8 @@
   function renderHero() {
     const badge = $('#hero-badge');
     if (badge) badge.textContent = CONFIG.profile.name;
+    const loc = $('#hero-location');
+    if (loc) loc.textContent = CONFIG.profile.location || '';
     $('#hero-title').textContent = CONFIG.profile.title;
     // Always render the static subtitle; the rotating variant is swapped in
     // by initTaglineRotator() only after the animation engine has loaded.
@@ -61,21 +64,45 @@
         .map((item) => `<span>${esc(item)}</span>`)
         .join('<span class="hero__proof-dot" aria-hidden="true">·</span>');
     }
-    const wordmark = $('#hero-wordmark');
-    if (wordmark) wordmark.textContent = CONFIG.profile.name.trim().split(/\s+/)[0].toUpperCase();
-    // Portrait beside the copy; without an avatar the hero keeps its
-    // original single centered column.
+
+    // Portrait as a placed image layer: file name above, live pixel size
+    // below. Without an avatar the hero collapses to one column.
+    const hero = $('.hero');
     const portrait = $('#hero-portrait');
     if (portrait && CONFIG.profile.avatarUrl) {
+      const file = CONFIG.profile.avatarUrl.split('/').pop();
       portrait.innerHTML =
-        `<img src="${esc(CONFIG.profile.avatarUrl)}" alt="Portrait of ${esc(CONFIG.profile.name)}" width="320" height="320" decoding="async" onerror="this.closest('figure').remove(); document.getElementById('hero').classList.add('hero--solo')">` +
+        `<span class="hero__portrait-layer" aria-hidden="true">▢ ${esc(file)}</span>` +
+        `<img src="${esc(CONFIG.profile.avatarUrl)}" alt="Portrait of ${esc(CONFIG.profile.name)}" width="320" height="320" decoding="async">` +
+        '<span class="hero__portrait-size" aria-hidden="true">320 × 320</span>' +
         (CONFIG.profile.location
           ? `<figcaption class="hero__portrait-cap">${ICONS.location}<span>${esc(CONFIG.profile.location)}</span></figcaption>`
           : '');
+      const img = $('img', portrait);
+      img.addEventListener('load', () => {
+        $('.hero__portrait-size', portrait).textContent = `${img.naturalWidth} × ${img.naturalHeight}`;
+      }, { once: true });
+      img.addEventListener('error', () => {
+        portrait.remove();
+        hero.classList.add('hero--solo');
+      }, { once: true });
       portrait.hidden = false;
     } else {
       if (portrait) portrait.remove();
-      $('#hero').classList.add('hero--solo');
+      hero.classList.add('hero--solo');
+    }
+
+    // FigJam-style sticky note with the current role (first experience).
+    const note = $('#hero-note');
+    const now = (CONFIG.experience || [])[0];
+    if (note && now) {
+      note.innerHTML =
+        '<b>Now</b>' +
+        `<p>${esc(now.role)} @ ${esc(now.company)}</p>` +
+        `<small>${esc(now.duration)}</small>`;
+      note.hidden = false;
+    } else if (note) {
+      note.remove();
     }
   }
 
@@ -145,7 +172,7 @@
       { n: (CONFIG.skills || []).reduce((n, g) => n + (g.items || []).length, 0), suffix: '+', label: 'Technologies & Tools' }
     ];
     $('#about-stats').innerHTML = stats.map((s) => `
-      <div class="glass stat reveal">
+      <div class="card stat reveal">
         <span class="stat__num" data-count="${s.n}" data-suffix="${s.suffix}">${s.n}${s.suffix}</span>
         <span class="stat__label">${s.label}</span>
       </div>`).join('');
@@ -153,7 +180,7 @@
 
   function renderSkills() {
     $('#skills-groups').innerHTML = (CONFIG.skills || []).map((group) => `
-      <div class="glass skill-group reveal" data-tilt>
+      <div class="card skill-group reveal">
         <h4>${esc(group.category)}</h4>
         <div class="pills">
           ${(group.items || []).map((it) => `<span class="pill" data-tech="${esc(it.name.toLowerCase())}">${esc(it.name)}</span>`).join('')}
@@ -164,7 +191,7 @@
   function renderFilterChips() {
     const cats = ['All', ...new Set((CONFIG.projects || []).map((p) => p.category))];
     $('#project-filters').innerHTML = cats.map((c, i) => `
-      <button class="chip" type="button" data-filter="${esc(c)}" aria-pressed="${i === 0}" data-gel>
+      <button class="chip" type="button" data-filter="${esc(c)}" aria-pressed="${i === 0}">
         ${i === 0 ? 'All Projects' : esc(c)}
       </button>`).join('');
   }
@@ -185,8 +212,14 @@
     const techTags = (p.tags || []).map(t => t.toLowerCase()).join(',');
     const cat = CATEGORY_MARKS[p.category] ||
       { mark: initials(p.category || p.title), mod: 'backend' };
+    // Comment pin: the project's deep-dive notes, one click from the card.
+    const notes = (p.deepDive || []).length;
+    const pin = notes
+      ? `<button type="button" class="comment-pin open-details-btn" data-project-title="${esc(p.title)}" aria-label="Open ${notes} notes on ${esc(p.title)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v11H9l-5 5z"/></svg>${notes}</button>`
+      : '';
     return `
-      <article class="glass card project-card${reveal ? ' reveal' : ''}" data-tech-tags="${esc(techTags)}" data-tilt>
+      <article class="card project-card${reveal ? ' reveal' : ''}" data-tech-tags="${esc(techTags)}">
+        ${pin}
         <div class="project-card__head">
           <span class="project-card__mark project-card__mark--${cat.mod}" aria-hidden="true">${esc(cat.mark)}</span>
           <h3>${esc(p.title)}</h3>
@@ -195,7 +228,7 @@
         <p class="project-card__desc">${esc(p.description)}</p>
         <div class="tags">${(p.tags || []).map((t) => `<span class="tag">${esc(t)}</span>`).join('')}</div>
         <div class="project-card__footer">
-          <button type="button" class="btn btn--sm glass open-details-btn" data-project-title="${esc(p.title)}" data-gel>Explore Details →</button>
+          <button type="button" class="btn btn--sm open-details-btn" data-project-title="${esc(p.title)}">Open details →</button>
           ${links ? `<div class="project-card__links">${links}</div>` : ''}
         </div>
       </article>`;
@@ -210,7 +243,7 @@
     const jobs = (CONFIG.experience || []).map((job) => `
       <div class="xp-entry reveal">
         <span class="xp-dot" aria-hidden="true"></span>
-        <article class="glass xp-item" data-tilt>
+        <article class="card xp-item">
           <div class="xp-item__head">
             <h3>${esc(job.role)}</h3>
             <span class="badge">${esc(job.duration)}</span>
@@ -226,7 +259,7 @@
     const edu = (CONFIG.education || []).map((e) => `
       <div class="xp-entry xp-entry--edu reveal">
         <span class="xp-dot" aria-hidden="true"></span>
-        <article class="glass xp-item" data-tilt>
+        <article class="card xp-item">
           <div class="xp-item__head">
             <h3>${esc(e.degree)}</h3>
             <span class="badge">${esc(e.duration)}</span>
@@ -242,7 +275,7 @@
     const html = (CONFIG.socialLinks || []).map((link) => {
       const icon = ICONS[(link.icon || '').toLowerCase()] || ICONS.mail;
       const external = /^(https?:|mailto:)/i.test(link.url);
-      return `<a class="social" href="${esc(link.url)}"${external ? ' target="_blank" rel="noopener"' : ''} aria-label="${esc(link.name)}" data-gel data-magnet>${icon}</a>`;
+      return `<a class="social" href="${esc(link.url)}"${external ? ' target="_blank" rel="noopener"' : ''} aria-label="${esc(link.name)}">${icon}</a>`;
     }).join('');
     $('#social-links').innerHTML = html;
     $('#footer-socials').innerHTML = html;
@@ -311,7 +344,7 @@
   function scrollToTarget(target, immediate = false) {
     if (HAS_GSAP && !REDUCED) {
       gsap.to(window, {
-        scrollTo: { y: target, offsetY: 88 },
+        scrollTo: { y: target, offsetY: 92 },
         duration: immediate ? 0 : 0.45,
         ease: 'power2.out',
         overwrite: 'auto'
@@ -602,32 +635,6 @@
     });
   }
 
-  function initActiveNav() {
-    $$('main section[id]').forEach((sec) => {
-      ScrollTrigger.create({
-        trigger: sec,
-        start: 'top center',
-        end: 'bottom center',
-        onToggle: (self) => {
-          if (!self.isActive) return;
-          let anyActive = false;
-          $$('.nav__links a').forEach((a) => {
-            const active = a.getAttribute('href') === '#' + sec.id;
-            a.classList.toggle('is-active', active);
-            if (active) {
-              anyActive = true;
-              updateNavIndicator(a);
-            }
-          });
-          // Hide the nav indicator if we are in a section with no matching nav link (e.g. Hero)
-          if (!anyActive) {
-            updateNavIndicator(null);
-          }
-        }
-      });
-    });
-  }
-
   function initBlogDropdown() {
     const btn = $('#blog-nav-btn');
     const dropdown = $('#blog-dropdown');
@@ -714,17 +721,34 @@
     // Dark / light mode: orthogonal to the color presets. The boot script
     // in <head> restores the saved mode before first paint; here we only
     // toggle and persist it.
+    const metaTheme = $('meta[name="theme-color"]');
+    const syncMode = () => {
+      const dark = document.documentElement.classList.contains('mode-dark');
+      if (modeBtn) modeBtn.setAttribute('aria-pressed', String(dark));
+      $$('.mode-switch__btn').forEach((b) =>
+        b.setAttribute('aria-pressed', String((b.dataset.mode === 'dark') === dark)));
+      // Browser chrome (mobile address bar) matches the canvas.
+      if (metaTheme) metaTheme.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim());
+    };
     const applyMode = (mode) => {
       document.documentElement.classList.toggle('mode-dark', mode === 'dark');
-      localStorage.setItem('portfolio-color-mode', mode);
-      if (modeBtn) modeBtn.setAttribute('aria-pressed', String(mode === 'dark'));
+      try { localStorage.setItem('portfolio-color-mode', mode); } catch (e) {}
+      syncMode();
     };
+    syncMode();
     if (modeBtn) {
-      modeBtn.setAttribute('aria-pressed', String(document.documentElement.classList.contains('mode-dark')));
       modeBtn.addEventListener('click', () => {
         applyMode(document.documentElement.classList.contains('mode-dark') ? 'light' : 'dark');
       });
     }
+    // The Light / Dark switch inside the theme menu.
+    dropdown.addEventListener('click', (e) => {
+      const b = e.target.closest('.mode-switch__btn');
+      if (b) {
+        e.stopPropagation();
+        applyMode(b.dataset.mode);
+      }
+    });
 
     const applyTheme = (themeName) => {
       const doc = document.documentElement;
@@ -882,117 +906,141 @@
               ease: 'power2.out', clearProps: 'all'
             });
             if (SWARM) Swarm.refresh(swarmTargets());
+            renderLayers();
             ScrollTrigger.refresh();
           }
         });
       } else {
         renderProjects(cat, false);
+        renderLayers();
       }
     });
   }
 
-  // ======================================================== GEL BUTTONS
-  // Everything tagged [data-gel] squishes like gel on press and springs
-  // back on release (works for both mouse and touch).
-  function initGelButtons() {
-    let active = null;
-    document.addEventListener('pointerdown', (e) => {
-      const el = e.target.closest('[data-gel]');
-      if (!el) return;
-      active = el;
-      gsap.to(el, { scale: 0.94, duration: 0.12, ease: 'power2.out' });
+  // ================================================================ CANVAS
+  // Every section is a frame on the canvas: a label row (name + live pixel
+  // size) and four selection handles, injected here so the HTML stays pure
+  // content. Sizes track resizes through one shared ResizeObserver.
+  function initFrames() {
+    const tags = new Map();
+    const ro = 'ResizeObserver' in window ? new ResizeObserver((entries) => {
+      entries.forEach((en) => {
+        const tag = tags.get(en.target);
+        const box = en.borderBoxSize && en.borderBoxSize[0];
+        const w = box ? box.inlineSize : en.target.offsetWidth;
+        const h = box ? box.blockSize : en.target.offsetHeight;
+        if (tag) tag.textContent = `${Math.round(w)} × ${Math.round(h)}`;
+      });
+    }) : null;
+    $$('.frame').forEach((frame) => {
+      const body = $('.frame__body', frame);
+      if (!body) return;
+      const label = document.createElement('div');
+      label.className = 'frame__label';
+      label.innerHTML =
+        `<a class="frame__name" href="#${frame.id}">${esc(frame.dataset.frame || frame.id)}</a>` +
+        '<span class="frame__size" aria-hidden="true"></span>';
+      frame.insertBefore(label, body);
+      body.insertAdjacentHTML('beforeend', ['tl', 'tr', 'bl', 'br']
+        .map((c) => `<i class="frame__handle frame__handle--${c}" aria-hidden="true"></i>`).join(''));
+      if (ro) {
+        tags.set(body, $('.frame__size', label));
+        ro.observe(body);
+      }
     });
-    const release = () => {
-      if (!active) return;
-      gsap.to(active, { scale: 1, duration: 0.7, ease: 'elastic.out(1.1, 0.4)' });
-      active = null;
-    };
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', release);
   }
 
-  // ========================================== POINTER FX (fine pointers)
-  // One shared rAF loop drives: the hovered card's 3D tilt and the magnetic pull.
-  function initPointerFX() {
-    const state = {
-      px: innerWidth / 2, py: innerHeight / 2,
-      tiltEl: null, rect: null, rx: 0, ry: 0,
-      magnetEl: null, magnetRect: null
-    };
+  // Figma-style layer list (wide screens): every frame plus its key
+  // children. Rebuilt after project filters re-render the cards.
+  const LAYER_CHILDREN = { projects: '.project-card h3', experience: '.xp-item h3' };
+  const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
 
+  function renderLayers() {
+    const list = $('#layers-list');
+    if (!list) return;
+    const active = $('.frame.is-selected');
+    list.innerHTML = $$('.frame').map((frame) => {
+      const kids = LAYER_CHILDREN[frame.id] ? $$(LAYER_CHILDREN[frame.id], frame) : [];
+      return `<a class="layers__item${frame === active ? ' is-active' : ''}" href="#${frame.id}">${esc(frame.dataset.frame || frame.id)}</a>` +
+        kids.map((h) => {
+          const card = h.closest('.card');
+          if (!card.id) card.id = `${frame.id}-${slug(h.textContent)}`;
+          return `<a class="layers__item layers__item--child" href="#${card.id}">${esc(h.textContent)}</a>`;
+        }).join('');
+    }).join('');
+  }
+
+  // The build crew's presence stack in the top bar — the same five
+  // labelled roles (and colors) that work in swarm.js.
+  const CREW = [
+    ['draw', 'Drawing'], ['type', 'Typing'], ['image', 'Placing images'],
+    ['paste', 'Copy / paste'], ['check', 'Checking']
+  ];
+
+  function renderPresence() {
+    const el = $('#topbar-presence');
+    if (!el) return;
+    el.innerHTML = '<span class="presence__stack">' +
+      CREW.map(([role, job], i) =>
+        `<span class="presence__avatar" role="img" aria-label="AI 0${i + 1}, ${job}" data-tip="AI 0${i + 1} · ${job}" style="--agent-color: var(--swarm-${role})">${i + 1}</span>`).join('') +
+      `</span><span class="presence__count">${CREW.length} agents online</span>`;
+  }
+
+  // The frame crossing the reading line is "selected": its outline and
+  // handles light up, and the toolbar, layers and top bar follow it.
+  // IntersectionObserver-based, so it also runs on the lite tier.
+  function initActiveFrame() {
+    const frames = $$('.frame');
+    if (!frames.length || !('IntersectionObserver' in window)) return;
+    const page = $('#topbar-page');
+    const select = (frame) => {
+      frames.forEach((f) => f.classList.toggle('is-selected', f === frame));
+      $$('.toolbar .nav__links .tool').forEach((a) => {
+        const on = a.getAttribute('href') === '#' + frame.id;
+        a.classList.toggle('is-active', on);
+        if (on) a.setAttribute('aria-current', 'location');
+        else a.removeAttribute('aria-current');
+      });
+      $$('.layers__item:not(.layers__item--child)').forEach((a) =>
+        a.classList.toggle('is-active', a.getAttribute('href') === '#' + frame.id));
+      if (page) page.textContent = frame.dataset.frame || frame.id;
+    };
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if (en.isIntersecting) select(en.target); });
+    }, { rootMargin: '-38% 0px -58% 0px' });
+    frames.forEach((f) => io.observe(f));
+  }
+
+  // ====================================================== VISITOR CURSOR
+  // The visitor joins the file as "You": a tag riding beside the real
+  // pointer (mouse only, capable devices; hidden over form fields and
+  // full-screen surfaces). One rAF-batched transform per move.
+  function initVisitorCursor() {
+    const tag = document.createElement('div');
+    tag.className = 'you-cursor';
+    tag.setAttribute('aria-hidden', 'true');
+    tag.innerHTML = '<span>You</span>';
+    document.body.appendChild(tag);
+    let x = 0;
+    let y = 0;
+    let queued = false;
+    const paint = () => {
+      queued = false;
+      tag.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    };
     window.addEventListener('pointermove', (e) => {
-      state.px = e.clientX;
-      state.py = e.clientY;
+      if (e.pointerType !== 'mouse') return;
+      x = e.clientX;
+      y = e.clientY;
+      const hide = e.target.closest && e.target.closest(
+        'input, textarea, select, iframe, .cli-terminal, .learning-reader, .page-loader');
+      tag.classList.toggle('is-on', !hide);
+      if (!queued) {
+        queued = true;
+        requestAnimationFrame(paint);
+      }
     }, { passive: true });
-
-    document.addEventListener('pointerover', (e) => {
-      const tilt = e.target.closest('[data-tilt]');
-      if (tilt && tilt !== state.tiltEl) {
-        state.tiltEl = tilt;
-        state.rect = tilt.getBoundingClientRect();
-        state.rx = 0;
-        state.ry = 0;
-      }
-      const magnet = e.target.closest('[data-magnet]');
-      if (magnet && magnet !== state.magnetEl) {
-        state.magnetEl = magnet;
-        state.magnetRect = magnet.getBoundingClientRect();
-      }
-      if (tilt || magnet) wake();
-    });
-
-    document.addEventListener('pointerout', (e) => {
-      if (state.tiltEl && !state.tiltEl.contains(e.relatedTarget)) {
-        gsap.to(state.tiltEl, {
-          rotateX: 0, rotateY: 0, y: 0,
-          duration: 0.9, ease: 'elastic.out(1, 0.45)'
-        });
-        state.tiltEl = null;
-        state.rect = null;
-      }
-      if (state.magnetEl && !state.magnetEl.contains(e.relatedTarget)) {
-        gsap.to(state.magnetEl, { x: 0, y: 0, duration: 0.8, ease: 'elastic.out(1, 0.4)' });
-        state.magnetEl = null;
-        state.magnetRect = null;
-      }
-    });
-
-    // rAF loop only runs while something is actually hovered — it sleeps
-    // (zero CPU) the rest of the time instead of spinning forever.
-    let running = false;
-    function wake() {
-      if (!running) {
-        running = true;
-        requestAnimationFrame(frame);
-      }
-    }
-
-    function frame() {
-      if (state.tiltEl && state.rect) {
-        const r = state.rect;
-        const nx = clamp((state.px - r.left) / r.width - 0.5, -0.5, 0.5);
-        const ny = clamp((state.py - r.top) / r.height - 0.5, -0.5, 0.5);
-        state.rx += (clamp(-ny * 12, -6, 6) - state.rx) * 0.16;
-        state.ry += (clamp(nx * 16, -8, 8) - state.ry) * 0.16;
-        gsap.set(state.tiltEl, {
-          rotateX: state.rx, rotateY: state.ry, y: -6, transformPerspective: 900
-        });
-      }
-
-      // Magnetic pull: element leans toward the cursor while hovered.
-      if (state.magnetEl && state.magnetRect) {
-        const m = state.magnetRect;
-        const dx = clamp((state.px - (m.left + m.width / 2)) * 0.3, -10, 10);
-        const dy = clamp((state.py - (m.top + m.height / 2)) * 0.3, -8, 8);
-        gsap.set(state.magnetEl, { x: dx, y: dy });
-      }
-
-      if (state.tiltEl || state.magnetEl) {
-        requestAnimationFrame(frame);
-      } else {
-        running = false;
-      }
-    }
+    document.documentElement.addEventListener('mouseleave', () => tag.classList.remove('is-on'));
   }
 
   // ============================================================ SCROLL FX
@@ -1001,16 +1049,17 @@
     // Skipped when the engine arrived late (slow network): the hero is
     // already visible by then and re-hiding it would flash.
     if (!SWARM && performance.now() < 2000) {
-      const introSel = '.hero__badge, .hero__title, .hero__sub, .hero__cta .btn, .hero__proof';
+      const introSel = '.hero__kicker, .hero__title, .hero__sub, .hero__cta .btn, .hero__proof, .hero__portrait, .sticky';
       const tl = gsap.timeline({
         delay: 0.15,
         onComplete: () => gsap.set(introSel, { clearProps: 'all' })
       });
-      tl.from('.hero__badge', { y: 26, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
+      tl.from('.hero__kicker', { y: 26, autoAlpha: 0, duration: 0.9, ease: 'power3.out' })
         .from('.hero__title', { y: 34, autoAlpha: 0, duration: 1, ease: 'power3.out' }, '-=0.62')
         .from('.hero__sub', { y: 24, autoAlpha: 0, duration: 0.9, ease: 'power3.out' }, '-=0.7')
         .from('.hero__cta .btn', { y: 20, autoAlpha: 0, duration: 0.8, stagger: 0.09, ease: 'power3.out' }, '-=0.62')
-        .from('.hero__proof', { y: 14, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, '-=0.5');
+        .from('.hero__proof', { y: 14, autoAlpha: 0, duration: 0.7, ease: 'power3.out' }, '-=0.5')
+        .from('.hero__portrait, .sticky', { y: 24, autoAlpha: 0, duration: 0.8, stagger: 0.12, ease: 'power3.out' }, '-=0.9');
     }
 
     // Float-up reveals. Hidden state applied here (JS only), and only to
@@ -1055,16 +1104,7 @@
       });
     });
 
-    // The giant name wordmark drifts left as the hero scrolls away.
-    const wordmark = $('#hero-wordmark');
-    if (wordmark) {
-      gsap.to(wordmark, {
-        xPercent: -12, ease: 'none',
-        scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: 1.9 }
-      });
-    }
-
-    // Page scroll progress along the nav pill's bottom edge.
+    // Page scroll progress along the top bar's bottom edge.
     const progress = $('.nav__progress');
     if (progress) {
       gsap.fromTo(progress, { scaleX: 0 }, {
@@ -1101,8 +1141,6 @@
         });
       });
     }
-
-    initActiveNav();
 
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => ScrollTrigger.refresh()).catch(() => {});
@@ -1162,48 +1200,12 @@
   }
 
 
-  // -------------------------------------------------------- sliding indicator
-  let currentActiveLink = null;
-
-  function updateNavIndicator(a) {
-    const indicator = $('#nav-indicator');
-    if (!indicator) return;
-    if (!a) {
-      indicator.classList.remove('is-visible');
-      currentActiveLink = null;
-      return;
-    }
-    
-    currentActiveLink = a;
-    const nav = $('#site-nav');
-    const rectA = a.getBoundingClientRect();
-    const rectNav = nav.getBoundingClientRect();
-    
-    const left = rectA.left - rectNav.left;
-    const width = rectA.width;
-    
-    indicator.classList.add('is-visible');
-    gsap.to(indicator, {
-      left: left,
-      width: width,
-      duration: 0.45,
-      ease: 'back.out(1.15)',
-      overwrite: 'auto'
-    });
-  }
-
-  // Handle window resizing to keep indicator aligned and marquee filled.
-  // Debounced: resize fires continuously (mobile URL-bar show/hide included)
-  // and this work forces layout reads.
+  // Keep the component strip filled on resize. Debounced: resize fires
+  // continuously (mobile URL-bar show/hide included) and this reads layout.
   let resizeTimer = 0;
   window.addEventListener('resize', () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      if (currentActiveLink) {
-        updateNavIndicator(currentActiveLink);
-      }
-      initMarqueeDupes();
-    }, 150);
+    resizeTimer = setTimeout(initMarqueeDupes, 150);
   });
 
   // ------------------------------------------------------------- project drawer
@@ -2206,21 +2208,23 @@
   }
 
   // ========================================================== SWARM BUILD
-  // Blocks the agent swarm assembles (see swarm.js). Intro blocks build
-  // when the opening dispatches its agents; every other block is scrubbed
-  // by scroll and labelled "<SECTION> · NN" in its build tag.
+  // Blocks the agent swarm assembles (see swarm.js). Intro blocks (hero
+  // copy, portrait layer, sticky note) build when the opening dispatches
+  // its agents; every block inside a frame is scrubbed by scroll and
+  // labelled "<FRAME> · NN" in its build tag.
   const SWARM_BLOCKS = '.section__head, .about__card, .about__stats, .skill-group, .chips, ' +
     '.project-card, .xp-item, .contact__form, .contact__aside';
 
   function swarmTargets() {
     const targets = [];
     const add = (el, mode, name) => { if (el) targets.push({ el, mode, name }); };
-    add($('.nav__links'), 'intro', 'NAV');
     add($('.hero__content'), 'intro', 'HERO');
-    add($('#hero-portrait'), 'intro', 'PORTRAIT');
-    $$('.section').forEach((sec) => {
-      $$(SWARM_BLOCKS, sec).forEach((el, i) =>
-        add(el, 'scroll', `${(sec.id || 'block').toUpperCase()} · ${String(i + 1).padStart(2, '0')}`));
+    add($('#hero-portrait'), 'intro', 'PROFILE.JPG');
+    add($('#hero-note'), 'intro', 'NOTE');
+    $$('.frame').forEach((frame) => {
+      const name = (frame.dataset.frame || frame.id || 'frame').toUpperCase();
+      $$(SWARM_BLOCKS, frame).forEach((el, i) =>
+        add(el, 'scroll', `${name} · ${String(i + 1).padStart(2, '0')}`));
     });
     return targets;
   }
@@ -2235,10 +2239,12 @@
       Swarm.playIntro(true);
       return;
     }
-    // The <head> boot script calls this instead of fading the loader.
+    // The <head> boot script calls this instead of fading the loader. The
+    // agents fly out to the file chrome and the hero they are about to build.
     window.__loaderHandoff = (cover) => Swarm.runOpening(cover, {
-      dests: [$('.nav__brand'), $('.nav__links'), $('.hero__badge'), $('.hero__title'),
-        $('.hero__sub'), $('.hero__cta'), $('#hero-portrait')].filter(Boolean),
+      dests: [$('.topbar__brand'), $('.topbar__file'), $('.hero__kicker'), $('.hero__title'),
+        $('.hero__sub'), $('.hero__cta'), $('#hero-portrait'), $('#hero-note'), $('.toolbar')]
+        .filter((el) => el && el.isConnected),
       onDispatch: (instant) => Swarm.playIntro(instant)
     });
   }
@@ -2259,6 +2265,10 @@
   renderContactMeta();
   renderFooter();
   renderBlogDropdown();
+  renderPresence();
+  initFrames();
+  renderLayers();
+  initActiveFrame();
 
   initNav();
   initStatusWarningModal();
@@ -2301,11 +2311,10 @@
       // Before initScrollFX: mounting strips .reveal from swarm blocks so
       // the float-up reveals never hide the same elements.
       if (window.Swarm) initSwarm();
-      initGelButtons();
       initScrollFX();
       initTaglineRotator();
-      // Tilt/magnet effects need a hovering cursor — pointless on touch.
-      if (!COARSE) initPointerFX();
+      // The "You" tag rides beside a real mouse pointer — pointless on touch.
+      if (!COARSE) initVisitorCursor();
     });
   } else {
     initLiteReveals();

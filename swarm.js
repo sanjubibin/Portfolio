@@ -188,14 +188,14 @@
     let done = false;
 
     // Fully built: hand the children back to their stylesheet (hover
-    // transitions, rest states) and sweep the glass shine across once.
+    // transitions, rest states) and flash the selection ring once.
     const settle = () => {
       el.classList.remove('is-building');
       el.classList.add('is-built');
       kids.forEach((k) => { k.style.removeProperty('transform'); k.style.removeProperty('opacity'); });
       if (done) return;
       done = true;
-      if (el.classList.contains('glass')) {
+      if (el.classList.contains('card') || el.classList.contains('glass')) {
         el.classList.add('reveal-shine');
         setTimeout(() => el.classList.remove('reveal-shine'), 1050);
       }
