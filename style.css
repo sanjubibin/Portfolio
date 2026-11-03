@@ -957,15 +957,91 @@ html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
   overflow: hidden;
 }
 
+/* Giant outlined first name behind the hero. Pure decoration (aria-hidden);
+   app.js drifts it sideways with scroll on capable devices. */
+.hero__wordmark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4.6rem;
+  z-index: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 0.8;
+}
+.hero__wordmark span {
+  display: inline-block;
+  padding-left: 1vw;
+  font: 800 clamp(6rem, 24vw, 22rem) / 0.8 var(--font-main);
+  letter-spacing: -0.05em;
+  color: hsl(var(--h-accent) / 0.05);
+  -webkit-text-stroke: 1.5px hsl(var(--h-accent) / 0.22);
+}
+
+/* Copy + portrait. Without a portrait (no avatarUrl) the hero falls back
+   to the original single centered column (.hero--solo). */
+.hero__grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  align-items: center;
+  gap: 3rem;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.hero--solo .hero__grid { grid-template-columns: minmax(0, 1fr); }
 
 .hero__content {
   position: relative;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 1.3rem;
-  text-align: center;
+  text-align: left;
+}
+.hero--solo .hero__content { align-items: center; text-align: center; }
+
+.hero__portrait {
+  justify-self: end;
+  width: 100%;
+  max-width: 340px;
+  padding: 10px;
+  border-radius: 32px;
+  box-shadow:
+    0 30px 70px -28px hsl(var(--h-accent) / 0.55),
+    0 20px 48px -16px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.hero__portrait img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 24px;
+}
+.hero__portrait-cap {
+  position: absolute;
+  left: 22px;
+  bottom: 22px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--r-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  background: rgba(11, 17, 32, 0.72);
+  border: 1px solid hsl(var(--h-accent) / 0.45);
+}
+.hero__portrait-cap svg { width: 14px; height: 14px; fill: hsl(var(--h-accent)); }
+
+@media (max-width: 900px) {
+  .hero__grid { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; }
+  .hero__content { align-items: center; text-align: center; }
+  .hero__portrait { justify-self: center; max-width: 280px; }
 }
 
 .hero__badge {
@@ -1009,7 +1085,7 @@ html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
 .hero__proof {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
   gap: 0.65rem;
   margin-top: 1.4rem;
@@ -1034,7 +1110,15 @@ html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
   text-shadow: 0 0 18px hsl(var(--h-accent) / 0.45);
 }
 
-.hero__cta { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; margin-top: 0.6rem; }
+.hero__cta { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: flex-start; margin-top: 0.6rem; }
+/* Rows follow the column's alignment: left beside the portrait, centered
+   when the hero stacks or has no portrait. */
+.hero--solo .hero__cta,
+.hero--solo .hero__proof { justify-content: center; }
+@media (max-width: 900px) {
+  .hero__cta,
+  .hero__proof { justify-content: center; }
+}
 
 /* ----------------------------------------------------------------- about */
 .about__grid {
@@ -3409,6 +3493,253 @@ html.mode-dark .surface-loader { background: rgba(11, 17, 32, 0.55); }
   #reader-chapter-content h1 {
     font-size: 1.8rem;
   }
+}
+
+/* =========================================================================
+   SWARM BUILD (swarm.js)
+   A crew of AI agent cursors assembles each block: AI 01 draws the
+   wireframe, 02 types, 03 places the image, 04 pastes, 05 checks, and
+   seven unlabeled helpers buzz around in the living hue. Every element
+   here is injected by swarm.js on capable devices only — lite and
+   reduced-motion visitors never get any of it.
+   ========================================================================= */
+.swarm-agents,
+.swarm-flight {
+  --swarm-draw: hsl(var(--h-vivid));
+  --swarm-type: #2f6fe0;
+  --swarm-image: #9d4edd;
+  --swarm-paste: #c9771a;
+  --swarm-check: #16a34a;
+}
+
+.swarm-build { position: relative; isolation: isolate; }
+/* Mid-build the children are driven by GSAP every frame — their own CSS
+   transitions would lag behind it, so they sit out until it settles. */
+.swarm-build.is-building > :not(.swarm-agents) { transition: none !important; }
+/* Keyboard users never land on a half-built, invisible control. */
+.swarm-build:not(.is-built):focus-within > :not(.swarm-agents) { opacity: 1 !important; transform: none !important; }
+.swarm-build:focus-within > .swarm-agents { display: none; }
+
+.swarm-agents {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: block;
+  pointer-events: none;
+  font: 600 8.5px/1.3 var(--font-main);
+  letter-spacing: 0.05em;
+}
+
+/* Wireframe edges, drawn one after another behind AI 01. */
+.swarm-wireframe { position: absolute; inset: 1px; opacity: 0; }
+.swarm-draw-line {
+  position: absolute;
+  display: block;
+  background: var(--accent);
+  box-shadow: 0 0 10px hsl(var(--h-accent) / 0.65);
+  opacity: 0.85;
+}
+.draw-top    { top: 0; left: 0; right: 0; height: 1.5px; transform-origin: left center; }
+.draw-right  { top: 0; right: 0; bottom: 0; width: 1.5px; transform-origin: center top; }
+.draw-bottom { bottom: 0; left: 0; right: 0; height: 1.5px; transform-origin: right center; }
+.draw-left   { top: 0; left: 0; bottom: 0; width: 1.5px; transform-origin: center bottom; }
+
+.swarm-typing-preview,
+.swarm-paste-preview,
+.swarm-placement-box,
+.swarm-check-stamp { position: absolute; left: 0; top: 0; opacity: 0; }
+
+/* Sticker-style preview chips with a hard offset shadow. */
+.swarm-typing-preview,
+.swarm-paste-preview {
+  max-width: min(250px, calc(100% - 24px));
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: 500 10px/1.5 var(--font-main);
+  letter-spacing: 0;
+  color: var(--ink-hi);
+  background: var(--bg-0);
+  border: 1px solid hsl(var(--h-accent) / 0.45);
+  box-shadow: 3px 3px 0 hsl(var(--h-accent) / 0.35);
+}
+.swarm-typing-preview::after { content: "▍"; color: var(--accent); }
+.swarm-paste-preview {
+  border-color: rgba(201, 119, 26, 0.6);
+  box-shadow: 3px 3px 0 rgba(201, 119, 26, 0.3);
+}
+.swarm-paste-preview::before {
+  content: "COPIED CONTENT ↗";
+  display: block;
+  margin-bottom: 3px;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--swarm-paste);
+}
+
+.swarm-placement-box {
+  border: 1.5px solid var(--swarm-image);
+  border-radius: 6px;
+  box-shadow: 0 0 0 4px rgba(157, 78, 221, 0.14);
+}
+.swarm-placement-box::before,
+.swarm-placement-box::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-0);
+  border: 1.5px solid var(--swarm-image);
+}
+.swarm-placement-box::before { left: -5px; top: -5px; }
+.swarm-placement-box::after { right: -5px; bottom: -5px; }
+
+.swarm-check-stamp {
+  padding: 3px 6px;
+  border-radius: 50%;
+  font: 800 13px/1.2 var(--font-main);
+  color: #ffffff;
+  background: var(--swarm-check);
+  border: 2px solid var(--bg-0);
+  box-shadow: 0 0 16px rgba(22, 163, 74, 0.55);
+}
+
+.swarm-agent {
+  --agent-color: var(--swarm-draw);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  opacity: 0;
+}
+.swarm-agent[data-agent-role="type"]  { --agent-color: var(--swarm-type); }
+.swarm-agent[data-agent-role="image"] { --agent-color: var(--swarm-image); }
+.swarm-agent[data-agent-role="paste"] { --agent-color: var(--swarm-paste); }
+.swarm-agent[data-agent-role="check"] { --agent-color: var(--swarm-check); }
+/* Helpers wear the living palette: fanned around the hue wheel from the
+   current --hue, so the swarm re-colors itself as the theme drifts. */
+.swarm-agent[data-agent-role="support"] { --agent-color: hsl(calc(var(--hue) + var(--i) * 47) 78% 60%); }
+.swarm-agent svg {
+  flex-shrink: 0;
+  fill: var(--agent-color);
+  stroke: #ffffff;
+  stroke-width: 1.4;
+  filter: drop-shadow(0 2px 3px rgba(2, 6, 23, 0.35));
+}
+.swarm-agent > span {
+  display: block;
+  margin-top: 15px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  color: #ffffff;
+  background: var(--agent-color);
+  box-shadow: 0 4px 12px -4px var(--agent-color);
+}
+.swarm-agent[data-agent-role="check"] > span { margin-top: -10px; }
+
+.swarm-build-label {
+  position: absolute;
+  left: 16px;
+  top: 12px;
+  opacity: 0;
+  padding: 5px 8px;
+  white-space: nowrap;
+  font: 700 8.5px/1.2 var(--font-code);
+  letter-spacing: 0.06em;
+  color: #f8fafc;
+  background: rgba(11, 17, 32, 0.92);
+  border: 1px solid hsl(var(--h-accent) / 0.55);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px -6px hsl(var(--h-accent) / 0.5);
+}
+.swarm-build-state { color: #86efac; }
+
+/* The nav pill is tiny: no build label, miniature agents and chips. */
+.nav .swarm-build-label { display: none; }
+.nav .swarm-agent > span { font-size: 6px; padding: 2px 3px; margin-top: 11px; }
+.nav .swarm-agent[data-agent-role="check"] > span { margin-top: -8px; }
+.nav .swarm-agent svg { width: 12px; height: 15px; }
+.nav .swarm-typing-preview,
+.nav .swarm-paste-preview { font-size: 7px; max-width: 125px; padding: 3px 5px; }
+
+@media (max-width: 760px) {
+  .swarm-agent[data-agent-role="support"] { display: none; }
+  .swarm-agent > span { font-size: 7px; padding: 3px 4px; }
+  .swarm-agent svg { width: 15px; height: 19px; }
+  .swarm-build-label { font-size: 7.5px; }
+  .swarm-build-state { display: none; }
+}
+
+/* ---- opening: the boot loader hands over to the swarm ---- */
+.page-loader > .swarm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-0);
+}
+.page-loader > .swarm-flight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.page-loader__ring,
+.page-loader__mark { position: relative; }
+/* Twenty cursors spread around the whole hue wheel, anchored to --hue. */
+.swarm-flight__agent {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  opacity: 0;
+  fill: hsl(calc(var(--hue) + var(--i) * 18) 82% 62%);
+  stroke: #ffffff;
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 6px hsl(calc(var(--hue) + var(--i) * 18) 82% 62% / 0.55));
+}
+.swarm-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  border-radius: 50%;
+  border: 2px solid hsl(var(--h-accent) / 0.7);
+  box-shadow: 0 0 30px hsl(var(--h-accent) / 0.5), inset 0 0 20px hsl(var(--h-accent) / 0.35);
+  opacity: 0;
+}
+.page-loader > .swarm-caption {
+  position: absolute;
+  top: calc(50% + 120px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font: 600 0.72rem var(--font-code);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+  opacity: 0;
+}
+.swarm-caption b { color: var(--accent); }
+.page-loader > .swarm-skip {
+  position: absolute;
+  right: 6%;
+  bottom: 30px;
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  font: 600 0.78rem var(--font-main);
+  color: var(--ink-mid);
+  background: var(--glass-fill);
+  border: 1px solid hsl(var(--h-accent) / 0.35);
+  cursor: pointer;
+  transition: color 0.25s ease, border-color 0.25s ease;
+}
+.swarm-skip:hover,
+.swarm-skip:focus-visible { color: var(--ink-hi); border-color: hsl(var(--h-accent) / 0.7); }
+
+@media (prefers-reduced-motion: reduce) {
+  .swarm-agents,
+  .swarm-flight { display: none; }
 }
 
 /* =========================================================================

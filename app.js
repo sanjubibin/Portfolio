@@ -25,6 +25,8 @@
   // GSAP is injected by the inline <head> script only on capable devices;
   // this flips to true once the engine has actually loaded (see bottom init).
   let HAS_GSAP = false;
+  // True once the swarm build layer (swarm.js) owns the page entrances.
+  let SWARM = false;
 
   const $ = (sel, ctx = document) => ctx.querySelector(sel);
   const $$ = (sel, ctx = document) => Array.from(ctx.querySelectorAll(sel));
@@ -58,6 +60,22 @@
       proof.innerHTML = CONFIG.profile.proofLine
         .map((item) => `<span>${esc(item)}</span>`)
         .join('<span class="hero__proof-dot" aria-hidden="true">·</span>');
+    }
+    const wordmark = $('#hero-wordmark');
+    if (wordmark) wordmark.textContent = CONFIG.profile.name.trim().split(/\s+/)[0].toUpperCase();
+    // Portrait beside the copy; without an avatar the hero keeps its
+    // original single centered column.
+    const portrait = $('#hero-portrait');
+    if (portrait && CONFIG.profile.avatarUrl) {
+      portrait.innerHTML =
+        `<img src="${esc(CONFIG.profile.avatarUrl)}" alt="Portrait of ${esc(CONFIG.profile.name)}" width="320" height="320" decoding="async" onerror="this.closest('figure').remove(); document.getElementById('hero').classList.add('hero--solo')">` +
+        (CONFIG.profile.location
+          ? `<figcaption class="hero__portrait-cap">${ICONS.location}<span>${esc(CONFIG.profile.location)}</span></figcaption>`
+          : '');
+      portrait.hidden = false;
+    } else {
+      if (portrait) portrait.remove();
+      $('#hero').classList.add('hero--solo');
     }
   }
 
@@ -863,6 +881,7 @@
               autoAlpha: 0, y: 10, duration: 0.25, stagger: 0.03,
               ease: 'power2.out', clearProps: 'all'
             });
+            if (SWARM) Swarm.refresh(swarmTargets());
             ScrollTrigger.refresh();
           }
         });
@@ -978,10 +997,10 @@
 
   // ============================================================ SCROLL FX
   function initScrollFX() {
-    // Hero intro.
+    // Hero intro (the swarm builds the hero itself when it is running).
     // Skipped when the engine arrived late (slow network): the hero is
     // already visible by then and re-hiding it would flash.
-    if (performance.now() < 2000) {
+    if (!SWARM && performance.now() < 2000) {
       const introSel = '.hero__badge, .hero__title, .hero__sub, .hero__cta .btn, .hero__proof';
       const tl = gsap.timeline({
         delay: 0.15,
@@ -1035,6 +1054,15 @@
         })
       });
     });
+
+    // The giant name wordmark drifts left as the hero scrolls away.
+    const wordmark = $('#hero-wordmark');
+    if (wordmark) {
+      gsap.to(wordmark, {
+        xPercent: -12, ease: 'none',
+        scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: 1.9 }
+      });
+    }
 
     // Page scroll progress along the nav pill's bottom edge.
     const progress = $('.nav__progress');
@@ -2177,6 +2205,44 @@
     });
   }
 
+  // ========================================================== SWARM BUILD
+  // Blocks the agent swarm assembles (see swarm.js). Intro blocks build
+  // when the opening dispatches its agents; every other block is scrubbed
+  // by scroll and labelled "<SECTION> · NN" in its build tag.
+  const SWARM_BLOCKS = '.section__head, .about__card, .about__stats, .skill-group, .chips, ' +
+    '.project-card, .xp-item, .contact__form, .contact__aside';
+
+  function swarmTargets() {
+    const targets = [];
+    const add = (el, mode, name) => { if (el) targets.push({ el, mode, name }); };
+    add($('.nav__links'), 'intro', 'NAV');
+    add($('.hero__content'), 'intro', 'HERO');
+    add($('#hero-portrait'), 'intro', 'PORTRAIT');
+    $$('.section').forEach((sec) => {
+      $$(SWARM_BLOCKS, sec).forEach((el, i) =>
+        add(el, 'scroll', `${(sec.id || 'block').toUpperCase()} · ${String(i + 1).padStart(2, '0')}`));
+    });
+    return targets;
+  }
+
+  function initSwarm() {
+    Swarm.init({ gsap, ScrollTrigger, targets: swarmTargets(), boot: true });
+    SWARM = true;
+    const loader = $('#page-loader');
+    if (!loader || loader.classList.contains('is-done')) {
+      // The cover already lifted (slow engine download): the hero is on
+      // screen, so finish its build instantly instead of re-hiding it.
+      Swarm.playIntro(true);
+      return;
+    }
+    // The <head> boot script calls this instead of fading the loader.
+    window.__loaderHandoff = (cover) => Swarm.runOpening(cover, {
+      dests: [$('.nav__brand'), $('.nav__links'), $('.hero__badge'), $('.hero__title'),
+        $('.hero__sub'), $('.hero__cta'), $('#hero-portrait')].filter(Boolean),
+      onDispatch: (instant) => Swarm.playIntro(instant)
+    });
+  }
+
   // ================================================================= INIT
   // Phase 1 — critical path, runs now: everything the visitor can see or
   // click in the first moments. Renders are cheap string templating into
@@ -2232,6 +2298,9 @@
       HAS_GSAP = true;
       gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
       if (REDUCED) return;
+      // Before initScrollFX: mounting strips .reveal from swarm blocks so
+      // the float-up reveals never hide the same elements.
+      if (window.Swarm) initSwarm();
       initGelButtons();
       initScrollFX();
       initTaglineRotator();
